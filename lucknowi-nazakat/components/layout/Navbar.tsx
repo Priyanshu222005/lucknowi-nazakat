@@ -1,77 +1,71 @@
+
 'use client';
 
-import React, { useState } from 'react';
 import Link from 'next/link';
-import { Search, ShoppingBag, Heart, User, Menu, X } from 'lucide-react';
+import { ShoppingBag, Search, Menu, User } from 'lucide-react';
+import { useCartStore } from '@/store/useCartStore';
+import { useEffect, useState } from 'react';
 
 export default function Navbar() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { toggleCart, getTotalItems } = useCartStore();
+  const [isMounted, setIsMounted] = useState(false);
 
-  const navLinks = [
-    { name: 'Home', href: '/' },
-    { name: 'Shop', href: '/shop' },
-    { name: 'Women', href: '/women' },
-    { name: 'Men', href: '/men' },
-    { name: 'Kids', href: '/kids' },
-    { name: 'New Arrivals', href: '/new-arrivals' },
-    { name: 'Sale', href: '/sale', highlight: true },
-  ];
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   return (
-    <header className="sticky top-0 z-50 bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#D4AF37]/20">
+    <nav className="sticky top-0 z-40 bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#6B1D2F]/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           
-          <div className="flex items-center lg:hidden">
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="text-[#2D2D2D] focus:outline-none p-2"
+          {/* Mobile Menu Icon */}
+          <button className="md:hidden p-2 text-[#2D2D2D] hover:text-[#6B1D2F]">
+            <Menu className="w-6 h-6" />
+          </button>
+
+          {/* Logo */}
+          <Link href="/" className="flex flex-col items-center">
+            <span className="font-serif text-2xl md:text-3xl font-bold tracking-wider text-[#6B1D2F]">
+              LUCKNOWI NAZAKAT
+            </span>
+            <span className="text-[10px] tracking-[0.25em] text-[#D4AF37] uppercase font-semibold">
+              Elegance Woven in Tradition
+            </span>
+          </Link>
+
+          {/* Desktop Navigation Links */}
+          <div className="hidden md:flex space-x-8 text-sm font-medium tracking-wide">
+            <Link href="/shop" className="hover:text-[#6B1D2F] transition-colors">Shop All</Link>
+            <Link href="/women" className="hover:text-[#6B1D2F] transition-colors">Women</Link>
+            <Link href="/men" className="hover:text-[#6B1D2F] transition-colors">Men</Link>
+            <Link href="/new-arrivals" className="hover:text-[#6B1D2F] transition-colors">New Arrivals</Link>
+            <Link href="/sale" className="text-[#6B1D2F] font-semibold hover:underline">Sale</Link>
+          </div>
+
+          {/* Action Icons */}
+          <div className="flex items-center space-x-4">
+            <button className="p-2 text-[#2D2D2D] hover:text-[#6B1D2F] transition-colors">
+              <Search className="w-5 h-5" />
+            </button>
+            <button className="p-2 text-[#2D2D2D] hover:text-[#6B1D2F] transition-colors">
+              <User className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={toggleCart}
+              className="p-2 text-[#2D2D2D] hover:text-[#6B1D2F] transition-colors relative"
             >
-              {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              <ShoppingBag className="w-5 h-5" />
+              {isMounted && getTotalItems() > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#6B1D2F] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                  {getTotalItems()}
+                </span>
+              )}
             </button>
           </div>
 
-          <div className="flex-1 lg:flex-none text-center lg:text-left">
-            <Link href="/" className="inline-block">
-              <span className="font-serif text-2xl md:text-3xl tracking-widest text-[#6B1D2F] font-bold block uppercase">
-                Lucknowi Nazakat
-              </span>
-              <span className="text-[10px] tracking-[0.25em] text-[#D4AF37] block font-medium uppercase -mt-1">
-                Elegance Woven in Tradition
-              </span>
-            </Link>
-          </div>
-
-          <nav className="hidden lg:flex items-center space-x-8">
-            {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                href={link.href}
-                className={`text-sm tracking-wide font-medium transition-colors hover:text-[#6B1D2F] ${
-                  link.highlight ? 'text-[#6B1D2F] font-semibold' : 'text-[#2D2D2D]'
-                }`}
-              >
-                {link.name}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="flex items-center space-x-4 sm:space-x-6">
-            <Link href="/shop?search=true" className="text-[#2D2D2D] p-1" aria-label="Search">
-              <Search className="w-5 h-5 sm:w-6 sm:h-6" />
-            </Link>
-            <Link href="/wishlist" className="text-[#2D2D2D] p-1 relative" aria-label="Wishlist">
-              <Heart className="w-5 h-5 sm:w-6 sm:h-6" />
-            </Link>
-            <Link href="/account" className="text-[#2D2D2D] p-1" aria-label="Account">
-              <User className="w-5 h-5 sm:w-6 sm:h-6" />
-            </Link>
-            <Link href="/cart" className="text-[#2D2D2D] p-1 relative" aria-label="Cart">
-              <ShoppingBag className="w-5 h-5 sm:w-6 sm:h-6" />
-            </Link>
-          </div>
         </div>
       </div>
-    </header>
+    </nav>
   );
 }
