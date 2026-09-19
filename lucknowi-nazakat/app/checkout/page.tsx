@@ -1,116 +1,126 @@
-import ProductCard from "@/components/product/ProductCard";
-import Image from "next/image";
-import Link from "next/link";
+'use client';
 
-const featuredProducts = [
-  {
-    id: "1",
-    name: "Royal White Chikankari Anarkali Set",
-    slug: "royal-white-chikankari-anarkali-set",
-    price: 4999,
-    originalPrice: 6999,
-    image: "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&q=80",
-    category: "Women",
-    isNew: true,
-  },
-  {
-    id: "2",
-    name: "Handcrafted Cotton Chikankari Kurta",
-    slug: "handcrafted-cotton-chikankari-kurta",
-    price: 2499,
-    originalPrice: 3499,
-    image: "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?auto=format&fit=crop&q=80",
-    category: "Men",
-    isNew: false,
-  },
-  {
-    id: "3",
-    name: "Lucknowi Murri Work Silk Dupatta",
-    slug: "lucknowi-murri-work-silk-dupatta",
-    price: 1899,
-    originalPrice: 2499,
-    image: "https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?auto=format&fit=crop&q=80",
-    category: "Accessories",
-    isNew: true,
-  },
-  {
-    id: "4",
-    name: "Pastel Blue Georgette Chikankari Suit",
-    slug: "pastel-blue-georgette-chikankari-suit",
-    price: 3999,
-    originalPrice: 5499,
-    image: "https://images.unsplash.com/photo-1609357605129-26f69add5d6e?auto=format&fit=crop&q=80",
-    category: "Women",
-    isNew: false,
-  },
-];
+import { useState } from 'react';
+import Script from 'next/script';
+import { useRouter } from 'next/navigation';
 
-export default function Home() {
+export default function CheckoutPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: 'Priyanshu',
+    email: 'priyanshu@example.com',
+    phone: '9876543210',
+    address: 'Boutique Store, Lucknow',
+  });
+
+  const totalAmount = 1499;
+
+  const handlePayment = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/razorpay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: totalAmount }),
+      });
+
+      const orderData = await res.json();
+
+      if (!res.ok) {
+        throw new Error(orderData.error || 'Failed to create order');
+      }
+
+      const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+      const isRealKey = razorpayKey && !razorpayKey.includes('1234567890');
+
+      if (isRealKey && (window as any).Razorpay) {
+        const options = {
+          key: razorpayKey,
+          amount: orderData.amount,
+          currency: orderData.currency,
+          name: 'Lucknowi Nazakat',
+          description: 'Authentic Chikankari Purchase',
+          order_id: orderData.id,
+          handler: function (response: any) {
+            alert(`Payment Successful! Payment ID: ${response.razorpay_payment_id}`);
+            router.push('/shop');
+          },
+          prefill: {
+            name: formData.name,
+            email: formData.email,
+            contact: formData.phone,
+          },
+          theme: { color: '#6B1D2F' },
+        };
+        const paymentObject = new (window as any).Razorpay(options);
+        paymentObject.open();
+      } else {
+        setTimeout(() => {
+          alert(`[TEST MODE] Order Placed Successfully!\n\nOrder ID: ${orderData.id}\nAmount: ₹${totalAmount}\nCustomer: ${formData.name}`);
+          router.push('/shop');
+        }, 500);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(`Payment Error: ${err.message || 'Something went wrong'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <main className="min-h-screen">
-      {/* Hero Section */}
-      <section className="relative bg-[#FAF7F2] py-16 md:py-24 overflow-hidden border-b border-[#6B1D2F]/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            
-            <div className="space-y-6">
-              <span className="text-xs font-bold tracking-[0.2em] uppercase text-[#D4AF37]">
-                Handcrafted Lakhnavi Craftsmanship
-              </span>
-              <h1 className="font-serif text-4xl md:text-6xl font-bold text-[#6B1D2F] leading-tight">
-                Elegance Woven in Tradition
-              </h1>
-              <p className="text-base md:text-lg text-[#2D2D2D]/80 font-normal leading-relaxed">
-                Discover timeless Indian ethnic couture crafted with delicate Chikankari embroidery, designed for modern grace and royalty.
-              </p>
-              <div className="flex flex-wrap gap-4 pt-2">
-                <Link
-                  href="/shop"
-                  className="px-8 py-3.5 bg-[#6B1D2F] text-white text-xs font-semibold uppercase tracking-widest rounded hover:bg-[#521624] transition-all duration-300 shadow-md"
-                >
-                  Shop Collection
-                </Link>
-                <Link
-                  href="/women"
-                  className="px-8 py-3.5 border border-[#6B1D2F] text-[#6B1D2F] text-xs font-semibold uppercase tracking-widest rounded hover:bg-[#6B1D2F] hover:text-white transition-all duration-300"
-                >
-                  Explore Women
-                </Link>
-              </div>
-            </div>
-
-            <div className="relative aspect-[4/5] w-full max-w-md mx-auto rounded-lg overflow-hidden shadow-2xl border-4 border-white">
-              <Image
-                src="https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&q=80"
-                alt="Lucknowi Nazakat Collection"
-                fill
-                priority
-                className="object-cover"
+    <>
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" />
+      <div className="min-h-screen bg-[#FAFAFA] py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-sm border border-stone-200">
+          <h1 className="text-3xl font-serif font-bold text-[#6B1D2F] mb-6">Checkout & Payment</h1>
+          
+          <div className="space-y-4 mb-8">
+            <div>
+              <label className="block text-sm font-medium text-stone-700">Full Name</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full mt-1 p-2 border border-stone-300 rounded focus:ring-[#6B1D2F] focus:border-[#6B1D2F]"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-stone-700">Email Address</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full mt-1 p-2 border border-stone-300 rounded focus:ring-[#6B1D2F] focus:border-[#6B1D2F]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-stone-700">Phone Number</label>
+              <input
+                type="text"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="w-full mt-1 p-2 border border-stone-300 rounded focus:ring-[#6B1D2F] focus:border-[#6B1D2F]"
+              />
+            </div>
+          </div>
 
+          <div className="border-t border-stone-200 pt-6 flex justify-between items-center">
+            <div>
+              <p className="text-sm text-stone-500">Total Payable Amount</p>
+              <p className="text-2xl font-bold text-[#6B1D2F]">₹{totalAmount}</p>
+            </div>
+            <button
+              onClick={handlePayment}
+              disabled={loading}
+              className="bg-[#6B1D2F] hover:bg-[#521624] text-[#D4AF37] px-8 py-3 rounded-lg font-semibold transition shadow-md disabled:opacity-50"
+            >
+              {loading ? 'Processing...' : 'Pay via Razorpay'}
+            </button>
           </div>
         </div>
-      </section>
-
-      {/* Featured Products Section */}
-      <section className="py-16 md:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center space-y-3 mb-12">
-          <span className="text-xs font-bold tracking-[0.2em] uppercase text-[#D4AF37]">
-            Handpicked Curations
-          </span>
-          <h2 className="font-serif text-3xl md:text-4xl font-bold text-[#6B1D2F]">
-            Featured Royal Collections
-          </h2>
-          <div className="w-16 h-0.5 bg-[#D4AF37] mx-auto"></div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {featuredProducts.map((product) => (
-            <ProductCard key={product.id} {...product} />
-          ))}
-        </div>
-      </section>
-    </main>
+      </div>
+    </>
   );
 }
