@@ -2,9 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Upload, Plus, Trash2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft } from 'lucide-react';
 
 export default function AddProductPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     category: 'Women',
@@ -18,14 +21,30 @@ export default function AddProductPage() {
     isFeatured: false,
   });
 
-  const [sizes, setSizes] = useState(['S', 'M', 'L', 'XL']);
-  const [images, setImages] = useState([
-    'https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&q=80'
-  ]);
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert('Product details captured! Next step: Database insertion API integration.');
+    setLoading(true);
+
+    try {
+      const response = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create product');
+      }
+
+      alert('Product created successfully in Database!');
+      router.push('/admin/products');
+      router.refresh();
+    } catch (error: any) {
+      alert(error.message || 'Something went wrong while publishing product.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -95,7 +114,7 @@ export default function AddProductPage() {
           </div>
         </div>
 
-        {/* Pricing & Stock */}
+        {/* Pricing & Fabric Details */}
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm space-y-4">
           <h2 className="font-serif text-lg font-bold text-gray-800 border-b pb-3">Pricing & Fabric Details</h2>
           
@@ -133,7 +152,7 @@ export default function AddProductPage() {
           </div>
         </div>
 
-        {/* Badges & Flags */}
+        {/* Display Badges */}
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm space-y-4">
           <h2 className="font-serif text-lg font-bold text-gray-800 border-b pb-3">Display Badges</h2>
           <div className="flex flex-wrap gap-6">
@@ -179,9 +198,10 @@ export default function AddProductPage() {
           </Link>
           <button
             type="submit"
-            className="px-8 py-3 bg-[#6B1D2F] text-white font-semibold rounded text-xs uppercase tracking-wider hover:bg-[#521624] transition-colors shadow-md"
+            disabled={loading}
+            className="px-8 py-3 bg-[#6B1D2F] text-white font-semibold rounded text-xs uppercase tracking-wider hover:bg-[#521624] transition-colors shadow-md disabled:opacity-50"
           >
-            Publish Product
+            {loading ? 'Publishing...' : 'Publish Product'}
           </button>
         </div>
       </form>
