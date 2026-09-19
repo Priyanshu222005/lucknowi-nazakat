@@ -7,69 +7,61 @@ export interface CartItem {
   slug: string;
   price: number;
   image: string;
-  size: string;
+  category: string;
   quantity: number;
 }
 
-interface CartStore {
-  cart: CartItem[];
+interface CartState {
+  items: CartItem[];
   isOpen: boolean;
-  addToCart: (item: Omit<CartItem, 'quantity'>, size?: string) => void;
-  removeFromCart: (id: string, size: string) => void;
-  updateQuantity: (id: string, size: string, quantity: number) => void;
+  addItem: (item: Omit<CartItem, 'quantity'>) => void;
+  removeItem: (id: string) => void;
+  updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
   toggleCart: () => void;
-  openCart: () => void;
-  closeCart: () => void;
-  getTotalItems: () => number;
-  getTotalPrice: () => number;
+  setIsOpen: (isOpen: boolean) => void;
 }
 
-export const useCartStore = create<CartStore>()(
+export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
-      cart: [],
+      items: [],
       isOpen: false,
-      addToCart: (item, selectedSize = 'M') => {
-        const currentCart = get().cart;
-        const existingItemIndex = currentCart.findIndex(
-          (i) => i.id === item.id && i.size === selectedSize
-        );
+      addItem: (product) => {
+        const currentItems = get().items;
+        const existingItem = currentItems.find((item) => item.id === product.id);
 
-        if (existingItemIndex > -1) {
-          const updatedCart = [...currentCart];
-          updatedCart[existingItemIndex].quantity += 1;
-          set({ cart: updatedCart, isOpen: true });
+        if (existingItem) {
+          set({
+            items: currentItems.map((item) =>
+              item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+            ),
+            isOpen: true,
+          });
         } else {
           set({
-            cart: [...currentCart, { ...item, size: selectedSize, quantity: 1 }],
+            items: [...currentItems, { ...product, quantity: 1 }],
             isOpen: true,
           });
         }
       },
-      removeFromCart: (id, size) => {
-        set({
-          cart: get().cart.filter((item) => !(item.id === id && item.size === size)),
-        });
+      removeItem: (id) => {
+        set({ items: get().items.filter((item) => item.id !== id) });
       },
-      updateQuantity: (id, size, quantity) => {
+      updateQuantity: (id, quantity) => {
         if (quantity <= 0) {
-          get().removeFromCart(id, size);
+          get().removeItem(id);
           return;
         }
         set({
-          cart: get().cart.map((item) =>
-            item.id === id && item.size === size ? { ...item, quantity } : item
+          items: get().items.map((item) =>
+            item.id === id ? { ...item, quantity } : item
           ),
         });
       },
-      clearCart: () => set({ cart: [] }),
-      toggleCart: () => set((state) => ({ isOpen: !state.isOpen })),
-      openCart: () => set({ isOpen: true }),
-      closeCart: () => set({ isOpen: false }),
-      getTotalItems: () => get().cart.reduce((total, item) => total + item.quantity, 0),
-      getTotalPrice: () =>
-        get().cart.reduce((total, item) => total + item.price * item.quantity, 0),
+      clearCart: () => set({ items: [] }),
+      toggleCart: () => set({ isOpen: !get().isOpen }),
+      setIsOpen: (isOpen) => set({ isOpen }),
     }),
     {
       name: 'lucknowi-nazakat-cart',

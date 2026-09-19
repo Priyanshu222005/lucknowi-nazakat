@@ -1,23 +1,22 @@
-import type { Metadata } from "next";
-import { Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
-import "./globals.css";
-import AnnouncementBar from "@/components/layout/AnnouncementBar";
-import Navbar from "@/components/layout/Navbar";
-import CartDrawer from "@/components/layout/CartDrawer";
+import type { Metadata } from 'next';
+import { Playfair_Display, Inter } from 'next/font/google';
+import './globals.css';
+import Navbar from '@/components/layout/Navbar';
+import CartDrawer from '@/components/cart/CartDrawer';
 
 const playfair = Playfair_Display({
-  subsets: ["latin"],
-  variable: "--font-playfair",
+  subsets: ['latin'],
+  variable: '--font-serif',
 });
 
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-jakarta",
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-sans',
 });
 
 export const metadata: Metadata = {
-  title: "Lucknowi Nazakat | Elegance Woven in Tradition",
-  description: "Luxury Chikankari & Ethnic Wear Collection",
+  title: 'Lucknowi Nazakat | Premium Chikankari Boutique',
+  description: 'Authentic Lucknowi Chikankari clothing handcrafted with royal elegance.',
 };
 
 export default function RootLayout({
@@ -26,12 +25,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${playfair.variable} ${jakarta.variable} font-sans bg-[#FAF7F2] text-[#2D2D2D] antialiased`}>
-        <AnnouncementBar />
+    <html lang="en" className={`${playfair.variable} ${inter.variable}`}>
+      <body className="font-sans antialiased text-stone-800 bg-[#FAFAFA]">
         <Navbar />
-        {children}
         <CartDrawer />
+        <main>{children}</main>
       </body>
     </html>
   );
