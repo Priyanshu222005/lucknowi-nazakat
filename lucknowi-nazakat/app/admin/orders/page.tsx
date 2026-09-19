@@ -1,30 +1,67 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-export const revalidate = 0;
-
-// Mock Order Data for Admin Overview
-const sampleOrders = [
-  {
-    id: 'ORD-9821',
-    customer: 'Priyanshu',
-    email: 'priyanshu@example.com',
-    amount: 1499,
-    status: 'Paid',
-    items: 'Royal Chikankari Kurta (x1)',
-    date: '19 Sep 2026',
-  },
-  {
-    id: 'ORD-9820',
-    customer: 'Ananya Sharma',
-    email: 'ananya@example.com',
-    amount: 4000,
-    status: 'Processing',
-    items: 'Handcrafted Anarkali Suit (x1)',
-    date: '18 Sep 2026',
-  },
-];
+interface OrderItemData {
+  id: string;
+  totalAmount: number;
+  status: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
+  phone: string;
+  address: string;
+  city: string;
+  pincode: string;
+  statusImage?: string;
+  trackingNumber?: string;
+  user?: { name: string; email: string };
+  items?: { product: { name: string }; quantity: number }[];
+  createdAt: string;
+}
 
 export default function AdminOrdersPage() {
+  const [orders, setOrders] = useState<OrderItemData[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchOrders = async () => {
+    try {
+      const res = await fetch('/api/admin/orders');
+      if (res.ok) {
+        const data = await res.json();
+        setOrders(data);
+      }
+    } catch (err) {
+      console.error('Failed to load orders', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  const handleUpdateStatus = async (orderId: string, newStatus: string) => {
+    try {
+      const res = await fetch('/api/admin/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, status: newStatus }),
+      });
+
+      if (res.ok) {
+        setOrders((prev) =>
+          prev.map((ord) => (ord.id === orderId ? { ...ord, status: newStatus as any } : ord))
+        );
+        alert(`Order status updated to "${newStatus.replace(/_/g, ' ')}"!`);
+      } else {
+        alert('Failed to update status in database.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error updating order status');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#FAFAFA] py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
@@ -44,43 +81,79 @@ export default function AdminOrdersPage() {
 
         {/* Orders Table */}
         <div className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden">
-          <table className="w-full text-left text-sm text-stone-600">
-            <thead className="bg-[#6B1D2F] text-[#D4AF37] uppercase text-xs font-semibold">
-              <tr>
-                <th className="py-3 px-4">Order ID</th>
-                <th className="py-3 px-4">Customer</th>
-                <th className="py-3 px-4">Items</th>
-                <th className="py-3 px-4">Amount</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100">
-              {sampleOrders.map((order) => (
-                <tr key={order.id} className="hover:bg-stone-50 transition">
-                  <td className="py-3 px-4 font-bold text-stone-900">{order.id}</td>
-                  <td className="py-3 px-4">
-                    <div className="font-medium text-stone-800">{order.customer}</div>
-                    <div className="text-xs text-stone-400">{order.email}</div>
-                  </td>
-                  <td className="py-3 px-4">{order.items}</td>
-                  <td className="py-3 px-4 font-bold text-[#6B1D2F]">₹{order.amount}</td>
-                  <td className="py-3 px-4">
-                    <span
-                      className={`px-2.5 py-1 text-xs font-bold rounded-full ${
-                        order.status === 'Paid'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-amber-100 text-amber-800'
-                      }`}
-                    >
-                      {order.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-xs text-stone-400">{order.date}</td>
+          {loading ? (
+            <div className="p-8 text-center text-stone-500 font-medium">Loading live orders...</div>
+          ) : orders.length === 0 ? (
+            <div className="p-8 text-center text-stone-500 font-serif">
+              No customer orders found in database. Place a test order from checkout to see it live!
+            </div>
+          ) : (
+            <table className="w-full text-left text-sm text-stone-600">
+              <thead className="bg-[#6B1D2F] text-[#D4AF37] uppercase text-xs font-semibold">
+                <tr>
+                  <th className="py-3.5 px-4">Order ID</th>
+                  <th className="py-3.5 px-4">Customer</th>
+                  <th className="py-3.5 px-4">Amount</th>
+                  <th className="py-3.5 px-4">Current Status</th>
+                  <th className="py-3.5 px-4">Update Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-stone-100">
+                {orders.map((order) => (
+                  <tr key={order.id} className="hover:bg-stone-50 transition">
+                    <td className="py-4 px-4 font-bold text-stone-900">
+                      ORD-{order.id.slice(0, 6).toUpperCase()}
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="font-semibold text-stone-800">
+                        {order.user?.name || 'Guest Customer'}
+                      </div>
+                      <div className="text-xs text-stone-400">
+                        {order.user?.email || order.phone}
+                      </div>
+                      <div className="text-xs text-stone-400 truncate max-w-xs">
+                        {order.address}, {order.city} - {order.pincode}
+                      </div>
+                    </td>
+                    <td className="py-4 px-4 font-bold text-[#6B1D2F]">
+                      ₹{order.totalAmount.toLocaleString('en-IN')}
+                    </td>
+                    <td className="py-4 px-4">
+                      <span
+                        className={`px-3 py-1 text-xs font-bold rounded-full ${
+                          order.status === 'DELIVERED'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : order.status === 'OUT_FOR_DELIVERY'
+                            ? 'bg-blue-100 text-blue-800'
+                            : order.status === 'SHIPPED'
+                            ? 'bg-purple-100 text-purple-800'
+                            : order.status === 'CANCELLED'
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {order.status.replace(/_/g, ' ')}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <select
+                        value={order.status}
+                        onChange={(e) => handleUpdateStatus(order.id, e.target.value)}
+                        className="bg-white border border-stone-300 text-stone-800 text-xs rounded-lg p-2 font-semibold focus:ring-2 focus:ring-[#6B1D2F] outline-none"
+                      >
+                        <option value="PENDING">PENDING</option>
+                        <option value="PROCESSING">PROCESSING</option>
+                        <option value="SHIPPED">SHIPPED</option>
+                        <option value="OUT_FOR_DELIVERY">OUT FOR DELIVERY</option>
+                        <option value="DELIVERED">DELIVERED</option>
+                        <option value="CANCELLED">CANCELLED</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

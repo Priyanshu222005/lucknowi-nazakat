@@ -1,59 +1,65 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function POST(request: Request) {
+export async function GET(req: Request) {
   try {
-    const body = await request.json();
-    const { name, category, price, originalPrice, description, isNew, isBestSeller, isFeatured } = body;
+    const { searchParams } = new URL(req.url);
+    const category = searchParams.get('category');
+    const filter = searchParams.get('filter');
 
-    if (!name || !price || !category) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    const whereClause: any = {};
+
+    if (category) {
+      const formattedCategory = category.charAt(0).toUpperCase() + category.slice(1).toLowerCase();
+      whereClause.OR = [
+        { category: { equals: category } },
+        { category: { equals: formattedCategory } },
+        { category: { equals: category.toLowerCase() } },
+      ];
     }
 
-    const parsedPrice = parseFloat(price);
-    const parsedOriginalPrice = originalPrice ? parseFloat(originalPrice) : parsedPrice;
-    
-    // Calculate discount percentage automatically if original price is higher
-    let discountPercentage = 0;
-    if (parsedOriginalPrice > parsedPrice) {
-      discountPercentage = Math.round(((parsedOriginalPrice - parsedPrice) / parsedOriginalPrice) * 100);
+    if (filter === 'sale') {
+      whereClause.isOnSale = true;
     }
 
-    const slug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')}-${Date.now()}`;
+    const products = await prisma.product.findMany({
+      where: whereClause,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return NextResponse.json(products);
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const { name, description, price, originalPrice, category, images, stock, isNewArrival, isBestSeller } = body;
+
+    const slug = name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') + '-' + Date.now();
+
+    const formattedImages = Array.isArray(images) ? JSON.stringify(images) : JSON.stringify([images]);
 
     const product = await prisma.product.create({
       data: {
         name,
         slug,
-        description: description || 'Premium Lucknowi Chikankari Apparel',
-        price: parsedPrice,
-        originalPrice: parsedOriginalPrice,
-        discountPercentage,
-        images: JSON.stringify(['https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&q=80']),
-        category,
-        stock: 10,
-        isNewArrival: Boolean(isNew ?? true),
-        isBestSeller: Boolean(isBestSeller ?? false),
-        isFeatured: Boolean(isFeatured ?? false),
-        isOnSale: discountPercentage > 0,
+        description,
+        price: parseFloat(price),
+        originalPrice: originalPrice ? parseFloat(originalPrice) : null,
+        category: category || 'Women',
+        images: formattedImages,
+        stock: stock ? parseInt(stock) : 10,
+        isNewArrival: isNewArrival ?? true,
+        isBestSeller: isBestSeller ?? false,
       },
     });
 
     return NextResponse.json(product, { status: 201 });
   } catch (error: any) {
-    console.error('Product Creation Error:', error);
-    return NextResponse.json({ error: error.message || 'Failed to create product' }, { status: 500 });
-  }
-}
-
-export async function GET() {
-  try {
-    const products = await prisma.product.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
-    return NextResponse.json(products);
-  } catch (error) {
-    console.error('Fetch Products Error:', error);
-    return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
+    console.error(error);
+    return NextResponse.json({ error: 'Failed to create product', message: error.message }, { status: 500 });
   }
 }

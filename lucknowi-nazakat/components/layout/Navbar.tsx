@@ -1,10 +1,16 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useCartStore } from '@/store/useCartStore';
 
 export default function Navbar() {
   const { items, toggleCart } = useCartStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const totalCartCount = items.reduce((total, item) => total + item.quantity, 0);
 
@@ -46,6 +52,7 @@ export default function Navbar() {
         <div className="flex items-center space-x-4">
           <button
             onClick={toggleCart}
+            suppressHydrationWarning
             className="relative p-2 text-stone-700 hover:text-[#6B1D2F] transition"
             aria-label="Shopping Cart"
           >
@@ -64,7 +71,7 @@ export default function Navbar() {
               />
             </svg>
 
-            {totalCartCount > 0 && (
+            {mounted && totalCartCount > 0 && (
               <span className="absolute top-0 right-0 bg-[#6B1D2F] text-[#D4AF37] text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow">
                 {totalCartCount}
               </span>

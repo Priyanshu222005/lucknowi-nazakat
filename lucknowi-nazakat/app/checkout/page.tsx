@@ -76,32 +76,32 @@ export default function CheckoutPage() {
         <div className="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-sm border border-stone-200">
           <h1 className="text-3xl font-serif font-bold text-[#6B1D2F] mb-6">Checkout & Payment</h1>
           
-          <div className="space-y-4 mb-8">
+          <div className="space-y-5 mb-8">
             <div>
-              <label className="block text-sm font-medium text-stone-700">Full Name</label>
+              <label className="block text-sm font-medium text-stone-700 mb-1">Full Name</label>
               <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full mt-1 p-2 border border-stone-300 rounded focus:ring-[#6B1D2F] focus:border-[#6B1D2F]"
+                className="w-full p-3 border border-stone-300 rounded-lg text-stone-900 bg-white font-semibold focus:ring-2 focus:ring-[#6B1D2F] focus:border-[#6B1D2F] outline-none transition"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-stone-700">Email Address</label>
+              <label className="block text-sm font-medium text-stone-700 mb-1">Email Address</label>
               <input
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full mt-1 p-2 border border-stone-300 rounded focus:ring-[#6B1D2F] focus:border-[#6B1D2F]"
+                className="w-full p-3 border border-stone-300 rounded-lg text-stone-900 bg-white font-semibold focus:ring-2 focus:ring-[#6B1D2F] focus:border-[#6B1D2F] outline-none transition"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-stone-700">Phone Number</label>
+              <label className="block text-sm font-medium text-stone-700 mb-1">Phone Number</label>
               <input
                 type="text"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full mt-1 p-2 border border-stone-300 rounded focus:ring-[#6B1D2F] focus:border-[#6B1D2F]"
+                className="w-full p-3 border border-stone-300 rounded-lg text-stone-900 bg-white font-semibold focus:ring-2 focus:ring-[#6B1D2F] focus:border-[#6B1D2F] outline-none transition"
               />
             </div>
           </div>
