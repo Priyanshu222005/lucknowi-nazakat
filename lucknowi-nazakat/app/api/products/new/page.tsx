@@ -7,9 +7,10 @@ import { ArrowLeft, Upload, Image as ImageIcon } from 'lucide-react';
 export default function AddProductPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    name: 'Chiken Curry Kurta',
+    name: 'Chicken Curry Kurta',
     category: 'Men',
     price: '3000',
     originalPrice: '12000',
@@ -22,16 +23,31 @@ export default function AddProductPage() {
     isFeatured: false,
   });
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setImagePreview(result);
-        setFormData((prev) => ({ ...prev, image: result }));
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    setUploading(true);
+    const uploadData = new FormData();
+    uploadData.append('file', file);
+
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: uploadData,
+      });
+
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setImagePreview(data.url);
+        setFormData((prev) => ({ ...prev, image: data.url }));
+      } else {
+        alert('Image upload failed!');
+      }
+    } catch (err) {
+      alert('Error uploading image file.');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -125,7 +141,7 @@ export default function AddProductPage() {
 
           <div>
             <label className="block text-xs font-semibold uppercase text-gray-700 mb-2">
-              Upload Product Image From Device
+              Upload Product Image From PC
             </label>
             <div className="flex flex-col sm:flex-row items-center gap-4 p-4 border-2 border-dashed border-stone-300 rounded-lg bg-stone-50 hover:bg-stone-100 transition">
               {imagePreview ? (
@@ -146,16 +162,17 @@ export default function AddProductPage() {
                   onChange={handleImageUpload}
                   id="image-upload-input"
                   className="hidden"
+                  disabled={uploading}
                 />
                 <label
                   htmlFor="image-upload-input"
                   className="inline-flex items-center space-x-2 bg-[#6B1D2F] text-white px-4 py-2 rounded text-xs font-bold uppercase tracking-wider cursor-pointer hover:bg-[#521624] transition shadow-sm"
                 >
                   <Upload className="w-4 h-4" />
-                  <span>Choose Photo from Device</span>
+                  <span>{uploading ? 'Uploading...' : 'Choose Photo from Device'}</span>
                 </label>
                 <p className="text-[11px] text-stone-500 mt-2">
-                  Supports PNG, JPG, WEBP formats.
+                  Photos will be saved to local server storage automatically[cite: 2].
                 </p>
               </div>
             </div>
@@ -207,7 +224,7 @@ export default function AddProductPage() {
           </button>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || uploading}
             className="px-8 py-3 bg-[#6B1D2F] text-white font-semibold rounded text-xs uppercase hover:bg-[#521624] transition shadow-md disabled:opacity-50 cursor-pointer"
           >
             {loading ? 'Publishing...' : 'Publish Product'}

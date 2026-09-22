@@ -1,35 +1,23 @@
 import type { Metadata } from 'next';
 import { Playfair_Display, Inter } from 'next/font/google';
+import { CartProvider } from '@/context/CartContext';
 import './globals.css';
-import Navbar from '@/components/layout/Navbar';
-import CartDrawer from '@/components/cart/CartDrawer';
 
-const playfair = Playfair_Display({
-  subsets: ['latin'],
-  variable: '--font-serif',
-});
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-sans',
-});
+const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' });
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: 'Lucknowi Nazakat | Premium Chikankari Boutique',
-  description: 'Authentic Lucknowi Chikankari clothing handcrafted with royal elegance.',
+  title: 'Lucknowi Nazakat',
+  description: 'Authentic Lucknowi Handcrafted Wear',
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${playfair.variable} ${inter.variable}`}>
-      <body className="font-sans antialiased text-stone-800 bg-[#FAFAFA]">
-        <Navbar />
-        <CartDrawer />
-        <main>{children}</main>
+    <html lang="en" className={`${playfair.variable} ${inter.variable}`} suppressHydrationWarning>
+      <body className="font-sans antialiased text-stone-800 bg-[#FAF9F6]" suppressHydrationWarning>
+        <CartProvider>
+          {children}
+        </CartProvider>
       </body>
     </html>
   );

@@ -1,67 +1,64 @@
-import { prisma } from '@/lib/prisma';
-import ProductCard from '@/components/product/ProductCard';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
+import Link from 'next/link';
 
-export const revalidate = 0;
-
-async function getProducts() {
-  try {
-    return await prisma.product.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
-  } catch (error) {
-    console.error('Failed to fetch products', error);
-    return [];
-  }
-}
-
-export default async function ShopPage() {
-  const products = await getProducts();
-
+export default function HomePage() {
   return (
-    <div className="min-h-screen bg-[#FAFAFA] py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-serif font-bold text-[#6B1D2F] tracking-wide mb-3">
-            Our Lucknowi Collection
+    <div className="min-h-screen flex flex-col bg-[#FAF9F6]">
+      <Navbar />
+
+      {/* Hero Banner Section */}
+      <section className="relative bg-[#6B1D2F] text-white py-20 px-4 text-center border-b border-[#521624]">
+        <div className="max-w-4xl mx-auto space-y-4">
+          <span className="text-xs uppercase tracking-[0.3em] text-[#F3E5AB] font-bold">
+            Royal Awadhi Collection
+          </span>
+          <h1 className="font-serif text-4xl md:text-6xl font-bold text-[#F3E5AB]">
+            Timeless Elegance of Lucknowi Chikankari
           </h1>
-          <p className="text-stone-600 max-w-xl mx-auto text-sm sm:text-base">
-            Explore authentic Lucknowi Chikankari, handcrafted with elegance and tradition.
+          <p className="text-sm md:text-base text-stone-200 max-w-2xl mx-auto font-light">
+            Handcrafted with precision by traditional master artisans. Pure Cotton, Georgette & Silk Chikankari Wear.
           </p>
+          <div className="pt-4">
+            <Link
+              href="/shop"
+              className="inline-block bg-[#F3E5AB] text-[#6B1D2F] px-8 py-3 rounded text-xs font-bold uppercase tracking-wider hover:bg-white transition shadow-lg"
+            >
+              Explore Collection
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Main Content Showcase */}
+      <main className="max-w-7xl mx-auto px-4 py-12 flex-1">
+        <div className="flex justify-between items-center mb-8 border-b pb-4">
+          <h2 className="font-serif text-2xl font-bold text-[#6B1D2F]">Featured Categories</h2>
+          <Link href="/shop" className="text-xs font-bold text-[#6B1D2F] hover:underline uppercase tracking-wider">
+            View All Products →
+          </Link>
         </div>
 
-        {products.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-xl shadow-sm border border-stone-200">
-            <p className="text-stone-500 font-medium text-lg">No products available in shop yet.</p>
-            <p className="text-stone-400 text-sm mt-1">Add items from the owner admin panel.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 sm:gap-8">
-            {products.map((product) => {
-              let imageList: string[] = [];
-              try {
-                imageList = typeof product.images === 'string' ? JSON.parse(product.images) : product.images;
-              } catch {
-                imageList = ['https://images.unsplash.com/photo-1610030469983-98e550d6193c'];
-              }
+        {/* Quick Collections Categories */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <Link href="/shop?category=women" className="group relative h-64 rounded-lg overflow-hidden bg-[#6B1D2F] shadow-md p-6 flex flex-col justify-end text-white hover:opacity-95 transition">
+            <span className="text-xs font-bold uppercase text-[#F3E5AB]">Women Collection</span>
+            <h3 className="font-serif text-2xl font-bold">Georgette & Cotton Kurtis</h3>
+          </Link>
 
-              const formattedProduct = {
-                id: product.id,
-                name: product.name,
-                slug: product.slug,
-                price: Number(product.price) || 0,
-                originalPrice: product.originalPrice ? Number(product.originalPrice) : undefined,
-                image: imageList[0] || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c',
-                images: imageList,
-                category: product.category,
-                isNew: Boolean(product.isNewArrival),
-                isBestSeller: Boolean(product.isBestSeller),
-              };
+          <Link href="/shop?category=men" className="group relative h-64 rounded-lg overflow-hidden bg-[#521624] shadow-md p-6 flex flex-col justify-end text-white hover:opacity-95 transition">
+            <span className="text-xs font-bold uppercase text-[#F3E5AB]">Men Collection</span>
+            <h3 className="font-serif text-2xl font-bold">Royalty Chikankari Kurtas</h3>
+          </Link>
 
-              return <ProductCard key={product.id} product={formattedProduct} />;
-            })}
-          </div>
-        )}
-      </div>
+          <Link href="/shop?category=sarees" className="group relative h-64 rounded-lg overflow-hidden bg-[#3D0C17] shadow-md p-6 flex flex-col justify-end text-white hover:opacity-95 transition">
+            <span className="text-xs font-bold uppercase text-[#F3E5AB]">Saree Specials</span>
+            <h3 className="font-serif text-2xl font-bold">Modal Silk & Pure Drapings</h3>
+          </Link>
+        </div>
+      </main>
+
+      <Footer />
     </div>
   );
 }
