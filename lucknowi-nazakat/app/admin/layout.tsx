@@ -22,6 +22,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <Link href="/admin/reviews" className="hover:underline hover:text-white transition-colors">
             Reviews
           </Link>
+          <Link href="/admin/settings" className="hover:underline hover:text-white transition-colors">
+            Settings
+          </Link>
         </nav>
 
         <Link href="/" className="text-xs bg-[#521624] px-3 py-1.5 rounded hover:bg-[#3D0C17] text-[#F3E5AB]">
