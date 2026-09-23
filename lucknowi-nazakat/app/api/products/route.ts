@@ -9,16 +9,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing required product fields' }, { status: 400 });
     }
 
-    const slug = name
-      .toLowerCase()
-      .trim()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/[\s_-]+/g, '-')
-      .replace(/^-+|-+$/g, '') + '-' + Date.now().toString().slice(-4);
+    const slug =
+      name
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/[\s_-]+/g, '-')
+        .replace(/^-+|-+$/g, '') +
+      '-' +
+      Math.floor(100 + Math.random() * 900).toString();
 
     const sku = 'LN-' + Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Database Insert using Prisma ORM
+    // Prisma Product Creation
     const newProduct = await prisma.product.create({
       data: {
         name,
@@ -26,7 +29,6 @@ export async function POST(req: Request) {
         sku,
         price: parseFloat(price),
         originalPrice: parseFloat(price),
-        categoryName: category,
         description: description || 'Authentic handcrafted Lucknowi Chikankari.',
         images: images,
         stock: parseInt(stock) || 10,
@@ -39,7 +41,7 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error('Product Creation Error:', error);
     return NextResponse.json(
-      { error: error?.message || 'Database transaction error occurred.' },
+      { error: error?.message || 'Database execution failed.' },
       { status: 500 }
     );
   }

@@ -14,38 +14,38 @@ export default function NewProductPage() {
   const [description, setDescription] = useState('');
   const [uploading, setUploading] = useState(false);
 
-  // Direct File Upload Handler
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 600; // Small width for fast & safe uploads
+        const scaleFactor = MAX_WIDTH / img.width;
+        
+        canvas.width = img.width > MAX_WIDTH ? MAX_WIDTH : img.width;
+        canvas.height = img.width > MAX_WIDTH ? img.height * scaleFactor : img.height;
 
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (res.ok && data.url) {
-        setImageUrl(data.url);
-      } else {
-        alert('Image process karne me issue aaya. Dobara file choose karein.');
-      }
-    } catch {
-      alert('Upload service error. Kripya image file re-select karein.');
-    } finally {
-      setUploading(false);
-    }
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+        setImageUrl(compressedBase64);
+        setUploading(false);
+      };
+    };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !price || !imageUrl) {
-      alert('Kripya Name, Price aur Product Image upload karein.');
+      alert('Kripya Name, Price aur Product Image choose karein.');
       return;
     }
 
@@ -58,19 +58,21 @@ export default function NewProductPage() {
           price: parseFloat(price),
           category,
           images: [imageUrl],
-          stock: parseInt(stock),
+          stock: parseInt(stock) || 10,
           description,
         }),
       });
 
-      if (res.ok) {
+      const data = await res.json();
+
+      if (res.ok && data.success) {
         alert('Product successfully publish ho gaya!');
         router.push('/admin/products');
       } else {
-        alert('Database me save nahi ho paaya.');
+        alert('Error: ' + (data.error || 'Database mein save nahi ho paaya.'));
       }
-    } catch {
-      alert('Server response failure.');
+    } catch (err: any) {
+      alert('Network / Server Error: ' + err.message);
     }
   };
 
@@ -121,7 +123,6 @@ export default function NewProductPage() {
           </div>
         </div>
 
-        {/* Pure File Upload Section */}
         <div>
           <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Upload Product Image *</label>
           <div className="border-2 border-dashed border-stone-300 p-4 rounded-xl text-center hover:bg-stone-50 transition-colors">
@@ -135,16 +136,14 @@ export default function NewProductPage() {
             <label htmlFor="product-file-upload" className="cursor-pointer space-y-2 block">
               <UploadCloud className="w-8 h-8 mx-auto text-amber-800" />
               <span className="text-xs text-gray-600 block font-medium">
-                {uploading
-                  ? 'Image uploading process ho rahi hai...'
-                  : 'Choose File par click karke image select karein'}
+                {uploading ? 'Processing Image...' : 'Click to choose image file'}
               </span>
             </label>
           </div>
 
           {imageUrl && (
             <div className="mt-2 flex items-center gap-2 text-xs text-green-700 font-semibold">
-              <CheckCircle2 className="w-4 h-4" /> Image Upload Completed!
+              <CheckCircle2 className="w-4 h-4" /> Image Processed & Ready!
             </div>
           )}
         </div>
@@ -172,9 +171,10 @@ export default function NewProductPage() {
 
         <button
           type="submit"
-          className="w-full py-3 bg-[#6B1D2F] hover:bg-[#521624] text-[#F3E5AB] font-bold text-sm uppercase rounded-lg shadow transition-colors"
+          disabled={uploading}
+          className="w-full py-3 bg-[#6B1D2F] hover:bg-[#521624] text-[#F3E5AB] font-bold text-sm uppercase rounded-lg shadow transition-colors disabled:opacity-50"
         >
-          Publish Product
+          {uploading ? 'Processing Image...' : 'Publish Product'}
         </button>
       </form>
     </div>
