@@ -74,3 +74,18 @@ model Review {
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 }
+
+model Coupon {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  discountType    String    // "PERCENTAGE" or "FIXED"
+  discountAmount  Float
+  minOrderValue   Float     @default(0)
+  maxDiscount     Float?
+  usageLimit      Int?
+  usedCount       Int       @default(0)
+  expiryDate      DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
