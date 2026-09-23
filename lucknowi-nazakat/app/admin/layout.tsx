@@ -1,39 +1,39 @@
-import React from 'react';
-import Link from 'next/link';
+import type { Metadata } from 'next';
+import './globals.css';
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export const metadata: Metadata = {
+  title: 'Lucknowi Nazakat | Authentic Handcrafted Chikankari',
+  description:
+    'Elegance Woven in Tradition. Discover premium handcrafted Lucknowi Chikankari Kurtis, Sarees, and Suits crafted with Awadhi heritage.',
+  keywords: [
+    'Lucknowi Nazakat',
+    'Chikankari Kurti',
+    'Lucknowi Sarees',
+    'Handcrafted Ethnic Wear',
+    'Awadhi Embroidery',
+  ],
+  openGraph: {
+    title: 'Lucknowi Nazakat - Premium Ethnic Boutique',
+    description: 'Elegance Woven in Tradition. Shop authentic Chikankari online.',
+    url: 'https://lucknowi-nazakat.vercel.app',
+    siteName: 'Lucknowi Nazakat',
+    images: [
+      {
+        url: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=1200',
+        width: 1200,
+        height: 630,
+        alt: 'Lucknowi Nazakat Collection',
+      },
+    ],
+    locale: 'en_IN',
+    type: 'website',
+  },
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-stone-100 text-stone-800">
-      <header className="bg-[#6B1D2F] text-white p-4 shadow flex flex-col sm:flex-row justify-between items-center gap-4">
-        <h1 className="font-serif text-xl font-bold tracking-wider uppercase text-[#F3E5AB]">
-          Lucknowi Nazakat Admin Panel
-        </h1>
-
-        <nav className="flex items-center gap-4 text-xs font-semibold uppercase tracking-wide text-[#F3E5AB]">
-          <Link href="/admin/orders" className="hover:underline hover:text-white transition-colors">
-            Orders
-          </Link>
-          <Link href="/admin/products" className="hover:underline hover:text-white transition-colors">
-            Products
-          </Link>
-          <Link href="/admin/coupons" className="hover:underline hover:text-white transition-colors">
-            Coupons
-          </Link>
-          <Link href="/admin/reviews" className="hover:underline hover:text-white transition-colors">
-            Reviews
-          </Link>
-          <Link href="/admin/settings" className="hover:underline hover:text-white transition-colors">
-            Settings
-          </Link>
-        </nav>
-
-        <Link href="/" className="text-xs bg-[#521624] px-3 py-1.5 rounded hover:bg-[#3D0C17] text-[#F3E5AB]">
-          ← Back To Store
-        </Link>
-      </header>
-      <main className="p-6 max-w-7xl mx-auto">
-        {children}
-      </main>
-    </div>
+    <html lang="en">
+      <body className="antialiased bg-stone-50 text-stone-900">{children}</body>
+    </html>
   );
 }
