@@ -1,112 +1,183 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { UploadCloud, CheckCircle2 } from 'lucide-react';
 
-export default function AdminProductsPage() {
-  const [products, setProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function NewProductPage() {
+  const router = useRouter();
+  const [name, setName] = useState('');
+  const [price, setPrice] = useState('');
+  const [category, setCategory] = useState('Kurtis');
+  const [imageUrl, setImageUrl] = useState('');
+  const [stock, setStock] = useState('10');
+  const [description, setDescription] = useState('');
+  const [uploading, setUploading] = useState(false);
 
-  const fetchProducts = async () => {
-    try {
-      const res = await fetch('/api/products');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setProducts(data);
-      }
-    } catch (err) {
-      console.error('Error fetching products:', err);
-    } finally {
-      setLoading(false);
-    }
+  // Compress image before converting to Base64 to avoid size error
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        const scaleFactor = MAX_WIDTH / img.width;
+        
+        canvas.width = img.width > MAX_WIDTH ? MAX_WIDTH : img.width;
+        canvas.height = img.width > MAX_WIDTH ? img.height * scaleFactor : img.height;
+
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+        setImageUrl(compressedBase64);
+        setUploading(false);
+      };
+    };
   };
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name || !price || !imageUrl) {
+      alert('Kripya Name, Price aur Product Image select karein.');
+      return;
+    }
 
     try {
-      const res = await fetch(`/api/products?id=${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setProducts((prev) => prev.filter((p) => p.id !== id));
-        alert('Product deleted successfully!');
+      const res = await fetch('/api/products/new', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          price: parseFloat(price),
+          category,
+          images: [imageUrl],
+          stock: parseInt(stock) || 10,
+          description,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        alert('Product successfully publish ho gaya!');
+        router.push('/admin/products');
       } else {
-        alert('Failed to delete product.');
+        alert(data.error || 'Database mein save nahi ho paaya.');
       }
-    } catch (err) {
-      alert('Error deleting product.');
+    } catch {
+      alert('Server response failure. Dobara try karein.');
     }
   };
 
   return (
-    <div className="max-w-6xl mx-auto py-10 px-4 sm:px-6 lg:px-8 space-y-6">
-      <div className="flex justify-between items-center border-b border-stone-200 pb-4">
-        <div>
-          <h1 className="text-3xl font-serif font-bold text-[#6B1D2F]">Apparel Catalog</h1>
-          <p className="text-xs text-stone-500 mt-1">Manage, add, and remove boutique items</p>
-        </div>
-        <Link
-          href="/admin/products/new"
-          className="bg-[#6B1D2F] text-[#D4AF37] px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-[#521624] transition shadow-md"
-        >
-          + Add New Product
-        </Link>
-      </div>
+    <div className="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-md space-y-6">
+      <h1 className="text-2xl font-serif font-bold text-gray-900 border-b pb-4">
+        Add New Lucknowi Collection
+      </h1>
 
-      {loading ? (
-        <div className="py-12 text-center text-stone-500 font-semibold text-sm">Loading products...</div>
-      ) : products.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-xl border border-stone-200 shadow-sm space-y-3">
-          <p className="text-stone-600 text-sm font-semibold">No products found in the database.</p>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Product Name *</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Handcrafted White Chikankari Kurti"
+            className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-amber-800 outline-none"
+            required
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <Link
-              href="/admin/products/new"
-              className="bg-[#6B1D2F] text-white px-4 py-2 rounded text-xs font-bold uppercase inline-block hover:bg-[#521624] transition"
+            <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Price (₹) *</label>
+            <input
+              type="number"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="2499"
+              className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-amber-800 outline-none"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Category *</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:ring-1 focus:ring-amber-800 outline-none"
             >
-              Add Your First Product →
-            </Link>
+              <option value="Kurtis">Kurtis</option>
+              <option value="Sarees">Sarees</option>
+              <option value="Suits">Suits</option>
+              <option value="Men">Men's Collection</option>
+            </select>
           </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.map((product) => (
-            <div key={product.id} className="bg-white border border-stone-200 rounded-xl overflow-hidden shadow-sm flex flex-col">
-              <div className="relative h-56 w-full bg-stone-100">
-                <Image
-                  src={product.image || '/images/placeholder.jpg'}
-                  alt={product.name}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                <div>
-                  <span className="text-[10px] font-bold tracking-wider uppercase text-amber-800 bg-amber-50 px-2 py-0.5 rounded">
-                    {product.category}
-                  </span>
-                  <h3 className="font-serif font-bold text-stone-900 text-lg mt-1">{product.name}</h3>
-                  <div className="flex items-center space-x-2 mt-1">
-                    <p className="text-base font-bold text-[#6B1D2F]">₹{product.price}</p>
-                    {product.originalPrice && (
-                      <p className="text-xs text-stone-400 line-through">₹{product.originalPrice}</p>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleDelete(product.id)}
-                  className="w-full py-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold hover:bg-rose-100 transition"
-                >
-                  🗑️ Delete Product
-                </button>
-              </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Upload Product Image *</label>
+          <div className="border-2 border-dashed border-stone-300 p-4 rounded-xl text-center hover:bg-stone-50 transition-colors">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileUpload}
+              className="hidden"
+              id="product-file-upload"
+            />
+            <label htmlFor="product-file-upload" className="cursor-pointer space-y-2 block">
+              <UploadCloud className="w-8 h-8 mx-auto text-amber-800" />
+              <span className="text-xs text-gray-600 block font-medium">
+                {uploading ? 'Processing Image...' : 'Click to choose image file'}
+              </span>
+            </label>
+          </div>
+
+          {imageUrl && (
+            <div className="mt-2 flex items-center gap-2 text-xs text-green-700 font-semibold">
+              <CheckCircle2 className="w-4 h-4" /> Image Processed & Ready!
             </div>
-          ))}
+          )}
         </div>
-      )}
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Stock Quantity</label>
+          <input
+            type="number"
+            value={stock}
+            onChange={(e) => setStock(e.target.value)}
+            className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-amber-800 outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Description</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Fabric details, embroidery style..."
+            rows={3}
+            className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-amber-800 outline-none"
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={uploading}
+          className="w-full py-3 bg-[#6B1D2F] hover:bg-[#521624] text-[#F3E5AB] font-bold text-sm uppercase rounded-lg shadow transition-colors disabled:opacity-50"
+        >
+          {uploading ? 'Processing Image...' : 'Publish Product'}
+        </button>
+      </form>
     </div>
   );
 }

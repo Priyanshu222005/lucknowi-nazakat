@@ -1,35 +1,46 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function GET() {
-  try {
-    const products = await prisma.product.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
-    return NextResponse.json({ products });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
-  }
-}
-
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { name, description, price, category, image, stock } = body;
+    const { name, price, category, images, stock, description } = await req.json();
 
+    if (!name || !price || !images || images.length === 0) {
+      return NextResponse.json({ error: 'Missing required product fields' }, { status: 400 });
+    }
+
+    const slug = name
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/[\s_-]+/g, '-')
+      .replace(/^-+|-+$/g, '') + '-' + Date.now().toString().slice(-4);
+
+    const sku = 'LN-' + Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Database Insert using Prisma ORM
     const newProduct = await prisma.product.create({
       data: {
         name,
-        description: description || 'Handcrafted Lucknowi Chikankari',
-        price,
-        category,
-        image,
-        stock: stock || 10,
+        slug,
+        sku,
+        price: parseFloat(price),
+        originalPrice: parseFloat(price),
+        categoryName: category,
+        description: description || 'Authentic handcrafted Lucknowi Chikankari.',
+        images: images,
+        stock: parseInt(stock) || 10,
+        isNewArrival: true,
+        isFeatured: true,
       },
     });
 
     return NextResponse.json({ success: true, product: newProduct });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Product Creation Error:', error);
+    return NextResponse.json(
+      { error: error?.message || 'Database transaction error occurred.' },
+      { status: 500 }
+    );
   }
 }
