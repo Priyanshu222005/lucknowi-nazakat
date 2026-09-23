@@ -3,7 +3,7 @@ const prisma = new PrismaClient();
 
 async function main() {
   console.log('Seeding products into database...');
-
+  
   await prisma.product.deleteMany({});
 
   await prisma.product.createMany({
@@ -14,16 +14,16 @@ async function main() {
         description: 'Handcrafted Lucknowi Chikankari Anarkali Kurti in fine georgette fabric.',
         price: 4500,
         category: 'KURTIS',
-        image: 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800',
+        image: '/images/products/kurti-1.jpg',
         stock: 15,
       },
       {
         id: '2',
-        name: 'Chikankari Kurta - Mustard Yellow',
+        name: 'Chicken Curry Kurta - Mustard Yellow',
         description: 'Authentic handcrafted Chikankari kurta in vibrant mustard yellow.',
         price: 3000,
         category: 'KURTIS',
-        image: 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=800',
+        image: '/images/products/kurti-2.jpg',
         stock: 10,
       },
       {
@@ -32,13 +32,13 @@ async function main() {
         description: 'Elegant Lucknowi Chikankari saree with intricate Bakhiya stitching.',
         price: 6500,
         category: 'SAREES',
-        image: 'https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?w=800',
+        image: '/images/products/saree-1.jpg',
         stock: 8,
       },
     ],
   });
 
-  console.log('✅ Database seeded successfully with live images!');
+  console.log('✅ Database seeded successfully!');
 }
 
 main()

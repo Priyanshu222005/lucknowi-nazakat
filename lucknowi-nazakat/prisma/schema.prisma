@@ -1,24 +1,10 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
 generator client {
   provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
-}
-
-enum Role {
-  CUSTOMER
-  ADMIN
-}
-
-enum OrderStatus {
-  PENDING
-  PROCESSING
-  SHIPPED
-  OUT_FOR_DELIVERY
-  DELIVERED
-  CANCELLED
 }
 
 model User {
@@ -26,7 +12,7 @@ model User {
   name      String
   email     String   @unique
   password  String
-  role      Role     @default(CUSTOMER)
+  role      String   @default("CUSTOMER")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   orders    Order[]
@@ -34,45 +20,37 @@ model User {
 }
 
 model Product {
-  id                 String      @id @default(uuid())
-  name               String
-  slug               String      @unique
-  description        String
-  price              Float
-  originalPrice      Float?
-  discountPercentage Int?
-  rating             Float       @default(5.0)
-  reviewCount        Int         @default(0)
-  images             String      @default("[]")
-  category           String
-  stock              Int         @default(10)
-  isNewArrival       Boolean     @default(false)
-  isBestSeller       Boolean     @default(false)
-  isFeatured         Boolean     @default(false)
-  isOnSale           Boolean     @default(false)
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-  orderItems         OrderItem[]
-  reviews            Review[]
+  id          String      @id @default(uuid())
+  name        String
+  description String
+  price       Float
+  category    String
+  image       String
+  stock       Int         @default(10)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  orderItems  OrderItem[]
+  reviews     Review[]
 }
 
 model Order {
-  id             String      @id @default(uuid())
-  userId         String?
-  user           User?       @relation(fields: [userId], references: [id])
-  totalAmount    Float
-  status         OrderStatus @default(PENDING)
-  paymentId      String?
-  paymentStatus  String      @default("PENDING")
-  address        String
-  city           String
-  pincode        String
-  phone          String
-  trackingNumber String?
-  statusImage    String?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  items          OrderItem[]
+  id                String      @id @default(uuid())
+  userId            String?
+  user              User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  customerName      String
+  email             String?
+  phone             String
+  address           String
+  city              String?     @default("Lucknow")
+  state             String?     @default("Uttar Pradesh")
+  pincode           String?     @default("226001")
+  totalAmount       Float
+  paymentMethod     String      @default("COD")
+  paymentStatus     String      @default("PENDING")
+  razorpayPaymentId String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  items             OrderItem[]
 }
 
 model OrderItem {
@@ -80,7 +58,7 @@ model OrderItem {
   orderId   String
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId String
-  product   Product @relation(fields: [productId], references: [id])
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   quantity  Int
   price     Float
   size      String
@@ -88,11 +66,11 @@ model OrderItem {
 
 model Review {
   id        String   @id @default(uuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  productId String
-  product   Product  @relation(fields: [productId], references: [id])
   rating    Int
   comment   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 }

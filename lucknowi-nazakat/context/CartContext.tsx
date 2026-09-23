@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export interface CartItem {
+interface CartItem {
   id: string;
   name: string;
   price: number;
@@ -23,44 +23,62 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
+  // Load cart from localStorage on initial render
   useEffect(() => {
-    const saved = localStorage.getItem('ln_cart');
-    if (saved) {
-      try {
-        setCart(JSON.parse(saved));
-      } catch (e) {}
+    try {
+      const savedCart = localStorage.getItem('lucknowi_cart');
+      if (savedCart) {
+        setCart(JSON.parse(savedCart));
+      }
+    } catch (e) {
+      console.error('Failed to load cart from storage', e);
     }
+    setIsInitialized(true);
   }, []);
 
+  // Save cart to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('ln_cart', JSON.stringify(cart));
-  }, [cart]);
+    if (isInitialized) {
+      localStorage.setItem('lucknowi_cart', JSON.stringify(cart));
+    }
+  }, [cart, isInitialized]);
 
-  const addToCart = (newItem: CartItem) => {
-    setCart((prev) => {
-      const existing = prev.find((item) => item.id === newItem.id && item.size === newItem.size);
-      if (existing) {
-        return prev.map((item) =>
-          item.id === newItem.id && item.size === newItem.size
-            ? { ...item, quantity: item.quantity + newItem.quantity }
-            : item
-        );
+  const addToCart = (item: CartItem) => {
+    setCart((prevCart) => {
+      const existingIdx = prevCart.findIndex(
+        (i) => i.id === item.id && i.size === item.size
+      );
+      if (existingIdx > -1) {
+        const updated = [...prevCart];
+        updated[existingIdx].quantity += item.quantity;
+        return updated;
       }
-      return [...prev, newItem];
+      return [...prevCart, item];
     });
   };
 
   const removeFromCart = (id: string, size: string) => {
-    setCart((prev) => prev.filter((item) => !(item.id === id && item.size === size)));
+    setCart((prevCart) =>
+      prevCart.filter((item) => !(item.id === id && item.size === size))
+    );
   };
 
-  const clearCart = () => setCart([]);
+  const clearCart = () => {
+    setCart([]);
+    localStorage.removeItem('lucknowi_cart');
+  };
 
-  const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const totalAmount = cart.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
 
   return (
-    <CartContext.Provider value={{ cart, addToCart, removeFromCart, clearCart, totalAmount }}>
+    <CartContext.Provider
+      value={{ cart, addToCart, removeFromCart, clearCart, totalAmount }}
+    >
       {children}
     </CartContext.Provider>
   );
@@ -68,6 +86,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
 export function useCart() {
   const context = useContext(CartContext);
-  if (!context) throw new Error('useCart must be used within CartProvider');
+  if (!context) {
+    throw new Error('useCart must be used within a CartProvider');
+  }
   return context;
 }
