@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
-import path from 'path';
 
 export async function POST(req: Request) {
   try {
@@ -11,21 +9,37 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET || 'ml_default';
+
+    // Agar Cloudinary env settings preset hai
+    if (cloudName) {
+      const uploadData = new FormData();
+      uploadData.append('file', file);
+      uploadData.append('upload_preset', uploadPreset);
+
+      const cloudinaryRes = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+        {
+          method: 'POST',
+          body: uploadData,
+        }
+      );
+
+      const data = await cloudinaryRes.json();
+      if (data.secure_url) {
+        return NextResponse.json({ url: data.secure_url });
+      }
+    }
+
+    // Fallback: Convert file to Base64 Image URL directly
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+    const mimeType = file.type || 'image/png';
+    const base64Image = `data:${mimeType};base64,${buffer.toString('base64')}`;
 
-    // Unique filename generating
-    const filename = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
-    const filePath = path.join(process.cwd(), 'public/uploads', filename);
-
-    // Save image to public/uploads folder
-    await writeFile(filePath, buffer);
-
-    // Return relative public URL
-    const imageUrl = `/uploads/${filename}`;
-    return NextResponse.json({ success: true, url: imageUrl });
-  } catch (error: any) {
-    console.error('File Upload Error:', error);
-    return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+    return NextResponse.json({ url: base64Image });
+  } catch (error) {
+    return NextResponse.json({ error: 'Upload failed on server' }, { status: 500 });
   }
 }
