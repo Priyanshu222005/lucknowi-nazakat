@@ -9,7 +9,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           Lucknowi Nazakat Admin Panel
         </h1>
 
-        {/* Admin Navigation Links */}
         <nav className="flex items-center gap-4 text-xs font-semibold uppercase tracking-wide text-[#F3E5AB]">
           <Link href="/admin/orders" className="hover:underline hover:text-white transition-colors">
             Orders
