@@ -26,7 +26,6 @@ export default function Navbar() {
             <Link href="/" className="hover:text-[#F3E5AB] transition">Home</Link>
             <Link href="/shop" className="hover:text-[#F3E5AB] transition">Shop All</Link>
             <Link href="/shop?category=women" className="hover:text-[#F3E5AB] transition">Women</Link>
-            <Link href="/shop?category=men" className="hover:text-[#F3E5AB] transition">Men</Link>
             <Link href="/shop?category=sarees" className="hover:text-[#F3E5AB] transition">Sarees</Link>
             <Link href="/admin/orders" className="text-[#F3E5AB] hover:underline">Admin Panel</Link>
           </nav>
