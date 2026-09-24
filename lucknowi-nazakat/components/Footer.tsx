@@ -29,8 +29,8 @@ export default function Footer() {
         <div>
           <h4 className="font-bold text-white mb-3 uppercase tracking-wider">Store Location</h4>
           <p className="text-stone-400 leading-relaxed">
-            Hazratganj Main Market, Lucknow, Uttar Pradesh - 226001<br />
-            Support: +91 95083 93494
+            2nd Floor, City Plaza, Plot No. 4, Noida Extension, Gaur City 1, Sector 4, Greater Noida, Ghaziabad, Uttar Pradesh 201016, India <br />
+            Support: +91 9934578298
           </p>
         </div>
       </div>
