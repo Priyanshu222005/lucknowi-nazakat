@@ -27,16 +27,16 @@ export default function NewProductPage() {
       img.src = event.target?.result as string;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 800;
+        const MAX_WIDTH = 400; // Chhoti width taaki request size kam rahe
         const scaleFactor = MAX_WIDTH / img.width;
-        
+
         canvas.width = img.width > MAX_WIDTH ? MAX_WIDTH : img.width;
         canvas.height = img.width > MAX_WIDTH ? img.height * scaleFactor : img.height;
 
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-        
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.4); // Kam quality = chhota size
         setImageUrl(compressedBase64);
         setUploading(false);
       };
@@ -64,7 +64,13 @@ export default function NewProductPage() {
         }),
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        alert('Server ne JSON response nahi diya. Status: ' + res.status + '. Image bahut badi ho sakti hai.');
+        return;
+      }
 
       if (res.ok && data.success) {
         alert('Product successfully publish ho gaya!');
@@ -72,8 +78,8 @@ export default function NewProductPage() {
       } else {
         alert(data.error || 'Database mein save nahi ho paaya.');
       }
-    } catch {
-      alert('Server response failure. Dobara try karein.');
+    } catch (err: any) {
+      alert('Real Error: ' + err.message);
     }
   };
 
