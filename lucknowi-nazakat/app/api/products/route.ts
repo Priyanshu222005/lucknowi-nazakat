@@ -1,21 +1,19 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
-const prisma = globalForPrisma.prisma || new PrismaClient();
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+const prisma = new PrismaClient();
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, price, category, image, stock, description } = body;
+    const { name, price, category, images, stock, description } = body;
 
     const newProduct = await prisma.product.create({
       data: {
-        name: String(name || ''),
-        price: parseFloat(price) || 0,
-        category: String(category || ''),
-        image: String(image || ''),
+        name: String(name),
+        price: parseFloat(price),
+        category: String(category),
+        image: String(images?.[0] || ''),
         stock: parseInt(stock) || 0,
         description: String(description || ''),
       },
@@ -23,9 +21,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, product: newProduct });
   } catch (error: any) {
-    console.error("Product upload error:", error);
+    console.error("Product creation error:", error);
     return NextResponse.json(
-      { success: false, error: error.message || "Server error" },
+      { success: false, error: error.message || "Failed to create product" },
       { status: 500 }
     );
   }
