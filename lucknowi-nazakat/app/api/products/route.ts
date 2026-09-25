@@ -6,14 +6,14 @@ const prisma = new PrismaClient();
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, price, category, images, stock, description } = body;
+    const { name, price, category, image, stock, description } = body;
 
     const newProduct = await prisma.product.create({
       data: {
         name: String(name),
         price: parseFloat(price),
         category: String(category),
-        image: String(images?.[0] || ''),
+        image: String(image || ''),
         stock: parseInt(stock) || 0,
         description: String(description || ''),
       },
