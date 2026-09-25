@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
@@ -6,11 +6,19 @@ const prisma = globalForPrisma.prisma || new PrismaClient();
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
 export async function GET(
-  req: Request,
-  props: { params: Promise<{ slug: string }> }
+  req: NextRequest,
+  context: any
 ) {
   try {
-    const { slug } = await props.params;
+    const params = await context.params;
+    const slug = params?.slug;
+
+    if (!slug) {
+      return NextResponse.json(
+        { success: false, error: 'Slug is required' },
+        { status: 400 }
+      );
+    }
 
     const product = await prisma.product.findFirst({
       where: {
@@ -30,7 +38,7 @@ export async function GET(
 
     return NextResponse.json({ success: true, product });
   } catch (error: any) {
-    console.error('Fetch product by slug error:', error);
+    console.error('Fetch product error:', error);
     return NextResponse.json(
       { success: false, error: error.message || 'Server error' },
       { status: 500 }
