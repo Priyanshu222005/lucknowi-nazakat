@@ -127,12 +127,7 @@ export default function ShopPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {filteredProducts.map((p) => {
-              let images = [];
-              try {
-                images = typeof p.images === 'string' ? JSON.parse(p.images) : p.images || [];
-              } catch (e) {
-                images = [];
-              }
+              const images = p.image ? [p.image] : [];
               const imgSrc = images[0] || '/images/placeholder.jpg';
               const productLink = `/product/${p.slug || p.id}`;
 
