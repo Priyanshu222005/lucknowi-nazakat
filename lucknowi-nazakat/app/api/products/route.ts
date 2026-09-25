@@ -1,47 +1,29 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export async function POST(req: Request) {
   try {
-    const { name, price, category, images, stock, description } = await req.json();
+    const body = await req.json();
+    const { name, price, category, image, stock, description } = body;
 
-    if (!name || !price || !images || images.length === 0) {
-      return NextResponse.json({ error: 'Missing required product fields' }, { status: 400 });
-    }
-
-    const slug =
-      name
-        .toLowerCase()
-        .trim()
-        .replace(/[^\w\s-]/g, '')
-        .replace(/[\s_-]+/g, '-')
-        .replace(/^-+|-+$/g, '') +
-      '-' +
-      Math.floor(100 + Math.random() * 900).toString();
-
-    const sku = 'LN-' + Math.floor(100000 + Math.random() * 900000).toString();
-
-    // Prisma Product Creation
     const newProduct = await prisma.product.create({
       data: {
-        name,
-        slug,
-        sku,
+        name: String(name),
         price: parseFloat(price),
-        originalPrice: parseFloat(price),
-        description: description || 'Authentic handcrafted Lucknowi Chikankari.',
-        images: images,
-        stock: parseInt(stock) || 10,
-        isNewArrival: true,
-        isFeatured: true,
+        category: String(category),
+        image: String(image || ''),
+        stock: parseInt(stock) || 0,
+        description: String(description || ''),
       },
     });
 
     return NextResponse.json({ success: true, product: newProduct });
   } catch (error: any) {
-    console.error('Product Creation Error:', error);
+    console.error("Product creation error:", error);
     return NextResponse.json(
-      { error: error?.message || 'Database execution failed.' },
+      { success: false, error: error.message || "Failed to create product" },
       { status: 500 }
     );
   }
