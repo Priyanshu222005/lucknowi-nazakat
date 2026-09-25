@@ -19,17 +19,25 @@ export default function ProductCard({ product }: { product: Product }) {
   // Fallback high quality Chikankari image URL
   const defaultImage = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800';
 
+  // Helper to validate image URL
+  const getImageSrc = () => {
+    if (!product.image || product.image.trim() === '') return defaultImage;
+    return product.image;
+  };
+
   return (
     <div className="bg-white border border-stone-200 rounded-lg overflow-hidden shadow-sm flex flex-col justify-between hover:shadow-md transition">
       <div>
         <div className="relative w-full h-64 bg-stone-100 overflow-hidden">
           <img
-            src={product.image || defaultImage}
+            src={getImageSrc()}
             alt={product.name}
             className="w-full h-full object-cover hover:scale-105 transition duration-300"
             onError={(e) => {
-              // Agar path invalid/missing ho toh instant fallback load hoga
-              e.currentTarget.src = defaultImage;
+              const target = e.currentTarget;
+              if (target.src !== defaultImage) {
+                target.src = defaultImage;
+              }
             }}
           />
         </div>
