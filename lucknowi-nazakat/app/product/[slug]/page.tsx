@@ -20,6 +20,7 @@ export default function ProductDetailPage() {
   const [activeImageIndex, setActiveImageIndex] = useState<number>(0);
 
   const availableSizes = ['S', 'M', 'L', 'XL', 'XXL'];
+  const defaultFallbackImage = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800';
 
   useEffect(() => {
     if (slug) {
@@ -66,8 +67,25 @@ export default function ProductDetailPage() {
     );
   }
 
-  const images = JSON.parse(product.images || '[]');
-  const mainImage = images[activeImageIndex] || '/images/placeholder.jpg';
+  // Parse images securely
+  let images: string[] = [];
+  try {
+    if (product.images) {
+      images = JSON.parse(product.images);
+    }
+  } catch (e) {
+    images = [];
+  }
+
+  if (!images.length && product.image) {
+    images = [product.image];
+  }
+
+  if (!images.length) {
+    images = [defaultFallbackImage];
+  }
+
+  const mainImage = images[activeImageIndex] || defaultFallbackImage;
 
   const handleAddToCart = () => {
     addToCart({
@@ -101,20 +119,33 @@ export default function ProductDetailPage() {
                 src={mainImage}
                 alt={product.name}
                 className="w-full h-[520px] object-cover"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (target.src !== defaultFallbackImage) {
+                    target.src = defaultFallbackImage;
+                  }
+                }}
               />
             </div>
 
             {images.length > 1 && (
-              <div className="flex space-x-3">
+              <div className="flex space-x-3 overflow-x-auto pb-2">
                 {images.map((img: string, idx: number) => (
                   <button
                     key={idx}
                     onClick={() => setActiveImageIndex(idx)}
-                    className={`border-2 rounded overflow-hidden w-20 h-20 transition ${
+                    className={`border-2 rounded overflow-hidden w-20 h-20 transition flex-shrink-0 ${
                       activeImageIndex === idx ? 'border-[#6B1D2F]' : 'border-transparent opacity-70'
                     }`}
                   >
-                    <img src={img} alt="thumbnail" className="w-full h-full object-cover" />
+                    <img
+                      src={img}
+                      alt="thumbnail"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = defaultFallbackImage;
+                      }}
+                    />
                   </button>
                 ))}
               </div>
