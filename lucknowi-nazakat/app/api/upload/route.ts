@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { put } from '@vercel/blob';
 
 export async function POST(req: Request) {
   try {
@@ -9,37 +10,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET || 'ml_default';
-
-    // Agar Cloudinary env settings preset hai
-    if (cloudName) {
-      const uploadData = new FormData();
-      uploadData.append('file', file);
-      uploadData.append('upload_preset', uploadPreset);
-
-      const cloudinaryRes = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-        {
-          method: 'POST',
-          body: uploadData,
-        }
-      );
-
-      const data = await cloudinaryRes.json();
-      if (data.secure_url) {
-        return NextResponse.json({ url: data.secure_url });
-      }
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      return NextResponse.json({ error: 'Only image files are allowed' }, { status: 400 });
     }
 
-    // Fallback: Convert file to Base64 Image URL directly
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const mimeType = file.type || 'image/png';
-    const base64Image = `data:${mimeType};base64,${buffer.toString('base64')}`;
+    // Generate a unique filename to avoid collisions
+    const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    const fileExtension = file.name.split('.').pop() || 'jpg';
+    const filename = `products/${uniqueSuffix}.${fileExtension}`;
 
-    return NextResponse.json({ url: base64Image });
+    // Upload to Vercel Blob
+    const blob = await put(filename, file, {
+      access: 'public',
+    });
+
+    return NextResponse.json({ url: blob.url });
   } catch (error) {
-    return NextResponse.json({ error: 'Upload failed on server' }, { status: 500 });
+    console.error('[Upload] Error:', error);
+    const message = error instanceof Error ? error.message : 'Upload failed on server';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
