@@ -1,197 +1,126 @@
 'use client';
 
-import React, { useState } from 'react';
+export const dynamic = 'force-dynamic';
+
+import React, { useState, useEffect, use } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { useCart } from '@/context/CartContext';
 
-function AddProductPage() {
-  const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    price: '',
-    category: 'KURTIS',
-    image: '',
-    stock: '10',
-  });
+export default function SingleProductPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = use(params);
+  const productId = resolvedParams?.id;
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const [product, setProduct] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedSize, setSelectedSize] = useState('M');
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const cartContext = useCart();
+  const addToCart = cartContext?.addToCart;
 
-    setUploading(true);
-    const data = new FormData();
-    data.append('file', file);
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        const res = await fetch('/api/products');
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.products || [];
 
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: data,
-      });
+        const found = list.find((p: any) =>
+          String(p.id) === String(productId) ||
+          String(p._id) === String(productId) ||
+          String(p.name) === decodeURIComponent(String(productId))
+        );
 
-      const result = await res.json();
-      if (res.ok && result.url) {
-        setFormData((prev) => ({ ...prev, image: result.url }));
-        alert('✅ Image upload ho gayi!');
-      } else {
-        alert('Image upload nahi ho paayi.');
+        setProduct(found || null);
+      } catch (err) {
+        console.error('Fetch product detail error:', err);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error(err);
-      alert('Upload error.');
-    } finally {
-      setUploading(false);
-    }
-  };
+    };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.image) {
-      alert('Kripya pehle product photo upload karein!');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const res = await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          price: parseFloat(formData.price),
-          stock: parseInt(formData.stock, 10),
-        }),
-      });
-
-      if (res.ok) {
-        alert('✨ Naya product photo ke sath store par publish ho gaya!');
-        window.location.href = '/shop';
-      } else {
-        alert('Product add karne mein dikkat aayi.');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Server error occurred.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (productId) fetchProduct();
+  }, [productId]);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF9F6]">
       <Navbar />
 
-      <main className="max-w-2xl mx-auto px-4 py-10 flex-1 w-full">
-        <div className="bg-white border border-stone-200 rounded-lg p-8 shadow-sm">
-          <h1 className="font-serif text-2xl font-bold text-[#6B1D2F] mb-6 text-center">
-            Add New Lucknowi Collection
-          </h1>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-stone-600 mb-1">Product Name *</label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                placeholder="e.g. Royal Chanderi Silk Chikankari Kurti"
-                className="w-full text-xs p-2.5 border border-stone-300 rounded focus:outline-none focus:border-[#6B1D2F]"
-                required
+      <main className="max-w-6xl mx-auto px-4 py-10 flex-1 w-full">
+        {loading ? (
+          <div className="text-center py-20 text-xs font-semibold text-stone-500">
+            Loading Product Details...
+          </div>
+        ) : !product ? (
+          <div className="text-center py-20 space-y-4">
+            <h2 className="text-xl font-bold text-stone-800">Product Not Found</h2>
+            <p className="text-xs text-stone-500">Ye product details available nahi hain.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 bg-white p-6 md:p-10 rounded-lg border border-stone-200 shadow-sm">
+            <div className="w-full h-80 md:h-[450px] bg-stone-100 rounded overflow-hidden">
+              <img
+                src={product.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800'}
+                alt={product.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800';
+                }}
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-stone-600 mb-1">Price (₹) *</label>
-                <input
-                  type="number"
-                  name="price"
-                  value={formData.price}
-                  onChange={handleChange}
-                  placeholder="3500"
-                  className="w-full text-xs p-2.5 border border-stone-300 rounded focus:outline-none focus:border-[#6B1D2F]"
-                  required
-                />
-              </div>
+            <div className="flex flex-col justify-between space-y-6">
+              <div className="space-y-3">
+                <span className="text-xs font-bold tracking-wider uppercase bg-[#6B1D2F] text-white px-3 py-1 rounded inline-block">
+                  {product.category || 'Kurtis'}
+                </span>
 
-              <div>
-                <label className="block text-xs font-bold text-stone-600 mb-1">Category *</label>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  className="w-full text-xs p-2.5 border border-stone-300 rounded bg-white focus:outline-none focus:border-[#6B1D2F]"
-                >
-                  <option value="KURTIS">Kurtis</option>
-                  <option value="SAREES">Sarees</option>
-                  <option value="SUITS">Suits</option>
-                  <option value="DUPATTAS">Dupattas</option>
-                </select>
-              </div>
-            </div>
+                <h1 className="font-serif text-2xl md:text-3xl font-bold text-stone-900">
+                  {product.name}
+                </h1>
 
-            <div>
-              <label className="block text-xs font-bold text-stone-600 mb-1">
-                Product Image * {uploading && <span className="text-amber-600 font-normal">(Uploading...)</span>}
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileUpload}
-                className="w-full text-xs p-2 border border-stone-300 rounded file:mr-4 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-[#6B1D2F] file:text-white hover:file:bg-[#521624]"
-              />
-              {formData.image && (
-                <div className="mt-2 text-xs text-emerald-700 font-bold flex items-center gap-2">
-                  <span>✓ Photo Uploaded:</span>
-                  <span className="text-stone-500 font-normal">{formData.image}</span>
+                <p className="text-2xl font-bold text-[#6B1D2F]">
+                  ₹{product.price}
+                </p>
+
+                <p className="text-xs md:text-sm text-stone-600 leading-relaxed pt-2">
+                  {product.description || 'Authentic Chikankari Collection. Handcrafted embroidery work.'}
+                </p>
+
+                <div className="pt-4">
+                  <label className="block text-xs font-bold uppercase text-stone-700 mb-2">Select Size</label>
+                  <div className="flex gap-3">
+                    {['S', 'M', 'L', 'XL', 'XXL'].map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => setSelectedSize(size)}
+                        className={`w-10 h-10 rounded text-xs font-bold border transition ${
+                          selectedSize === size
+                            ? 'border-[#6B1D2F] bg-[#6B1D2F] text-white'
+                            : 'border-stone-300 text-stone-800 hover:border-stone-400'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              )}
-            </div>
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold text-stone-600 mb-1">Stock Quantity</label>
-              <input
-                type="number"
-                name="stock"
-                value={formData.stock}
-                onChange={handleChange}
-                className="w-full text-xs p-2.5 border border-stone-300 rounded focus:outline-none focus:border-[#6B1D2F]"
-              />
+              <button
+                type="button"
+                onClick={() => addToCart && addToCart({ ...product, size: selectedSize })}
+                className="w-full bg-[#6B1D2F] text-white py-4 rounded text-xs md:text-sm font-bold uppercase tracking-wider hover:bg-[#521624] transition shadow cursor-pointer"
+              >
+                + Add To Cart
+              </button>
             </div>
-
-            <div>
-              <label className="block text-xs font-bold text-stone-600 mb-1">Description</label>
-              <textarea
-                name="description"
-                rows={3}
-                value={formData.description}
-                onChange={handleChange}
-                placeholder="Fabric details, embroidery style..."
-                className="w-full text-xs p-2.5 border border-stone-300 rounded focus:outline-none focus:border-[#6B1D2F]"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || uploading}
-              className="w-full bg-[#6B1D2F] text-white py-3 rounded text-xs font-bold uppercase hover:bg-[#521624] transition cursor-pointer disabled:opacity-50"
-            >
-              {loading ? 'Publishing...' : 'Publish Product to Store'}
-            </button>
-          </form>
-        </div>
+          </div>
+        )}
       </main>
 
       <Footer />
     </div>
   );
 }
-
-export default AddProductPage;
