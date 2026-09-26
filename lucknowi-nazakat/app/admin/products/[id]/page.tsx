@@ -7,7 +7,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useCart } from '@/context/CartContext';
 
-export default function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function SingleProductPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const productId = resolvedParams?.id;
 
@@ -24,9 +24,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
         const res = await fetch('/api/products');
         const data = await res.json();
         const list = Array.isArray(data) ? data : data.products || [];
-        
-        const found = list.find((p: any) => 
-          String(p.id) === String(productId) || 
+
+        const found = list.find((p: any) =>
+          String(p.id) === String(productId) ||
           String(p._id) === String(productId) ||
           String(p.name) === decodeURIComponent(String(productId))
         );
@@ -53,8 +53,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
           </div>
         ) : !product ? (
           <div className="text-center py-20 space-y-4">
-            <h2 className="text-xl font-bold text-stone-800">Product Not Found</h2>
-            <p className="text-xs text-stone-500">Maaf kijiye, ye product mil nahi paya.</p>
+            <h2 className="text-xl font-bold text-stone-800">Product Details Not Found</h2>
+            <p className="text-xs text-stone-500">Ye product details available nahi hain.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 bg-white p-6 md:p-10 rounded-lg border border-stone-200 shadow-sm">
@@ -84,7 +84,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ id: st
                 </p>
 
                 <p className="text-xs md:text-sm text-stone-600 leading-relaxed pt-2">
-                  {product.description || 'Authentic Chikankari Collection. Handcrafted with traditional embroidery work.'}
+                  {product.description || 'Authentic Chikankari Collection. Handcrafted embroidery work.'}
                 </p>
 
                 <div className="pt-4">
