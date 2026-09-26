@@ -6,7 +6,10 @@ import { useCart } from '@/context/CartContext';
 
 export default function CheckoutModule() {
   const router = useRouter();
-  const { cart, totalAmount, clearCart } = useCart();
+  const cartContext = useCart();
+  const cart = cartContext?.cart || [];
+  const totalAmount = cartContext?.totalAmount || 0;
+  const clearCart = cartContext?.clearCart;
 
   const [paymentMethod, setPaymentMethod] = useState<'COD' | 'RAZORPAY'>('COD');
   const [loading, setLoading] = useState(false);
@@ -83,7 +86,7 @@ export default function CheckoutModule() {
 
         if (res.ok) {
           alert('📦 Cash on Delivery Order Successfully Place Ho Gaya!');
-          clearCart();
+          clearCart?.();
           router.push('/admin/orders');
         } else {
           alert('COD order place karne mein dikkat aayi.');
@@ -152,7 +155,7 @@ export default function CheckoutModule() {
             });
 
             alert('🎉 Payment Successful! Order Placed.');
-            clearCart();
+            clearCart?.();
             router.push('/admin/orders');
           } else {
             alert('❌ Payment verification fail ho gaya!');
