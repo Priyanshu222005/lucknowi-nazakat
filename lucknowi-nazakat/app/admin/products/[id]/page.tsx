@@ -6,19 +6,8 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
-interface Product {
-  id?: string;
-  _id?: string;
-  name: string;
-  price: number;
-  category: string;
-  image?: string;
-  stock: number;
-  description?: string;
-}
-
 export default function AdminProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -33,12 +22,19 @@ export default function AdminProductsPage() {
   // 1. Fetch Products List
   const fetchProducts = async () => {
     try {
+      setLoading(true);
       const res = await fetch('/api/products');
       const data = await res.json();
-      if (Array.isArray(data)) setProducts(data);
-      else if (data.products) setProducts(data.products);
+      if (Array.isArray(data)) {
+        setProducts(data);
+      } else if (data && data.products && Array.isArray(data.products)) {
+        setProducts(data.products);
+      } else {
+        setProducts([]);
+      }
     } catch (err) {
       console.error('Fetch error:', err);
+      setProducts([]);
     } finally {
       setLoading(false);
     }
@@ -85,65 +81,58 @@ export default function AdminProductsPage() {
     }
   };
 
-  // 3. Delete Handler — uses id/_id as primary identifier, falls back to name
-  const handleDeleteProduct = async (product: Product) => {
-    const identifier = product.id || product._id || product.name;
-
-    if (!identifier) {
-      alert('Error: Could not determine which product to delete.');
+  // 3. Delete Handler
+  const handleDeleteProduct = async (product: any) => {
+    const targetIdentifier = product.id || product._id || product.name;
+    if (!targetIdentifier) {
+      alert('Error: Product identifier not found.');
       return;
     }
 
-    const confirmed = confirm(`Kya aap "${product.name}" ko hamesha ke liye remove karna chahte hain?`);
-    if (!confirmed) return;
+    if (!confirm(`Kya aap "${product.name}" ko hamesha ke liye remove karna chahte hain?`)) return;
 
     try {
-      const res = await fetch(`/api/products/${encodeURIComponent(identifier)}`, {
+      const res = await fetch(`/api/products/${encodeURIComponent(targetIdentifier)}`, {
         method: 'DELETE',
       });
       const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to delete product.');
+      if (data.success) {
+        alert('✅ Product successfully remove ho gaya!');
+        fetchProducts();
+      } else {
+        alert('Delete fail: ' + (data.error || 'Failed to remove'));
       }
-
-      alert('✅ Product successfully remove ho gaya!');
-      await fetchProducts();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error occurred.';
-      console.error('Delete request failed:', message);
-      alert(`Delete fail: ${message}`);
+      alert('Delete request processing error.');
     }
   };
 
-  // 4. Stock Toggle Handler — uses id/_id as primary identifier, falls back to name
-  const handleToggleStock = async (product: Product) => {
-    const identifier = product.id || product._id || product.name;
-
-    if (!identifier) {
-      alert('Error: Could not determine which product to update.');
+  // 4. Stock Toggle Handler
+  const handleToggleStock = async (product: any) => {
+    const targetIdentifier = product.id || product._id || product.name;
+    if (!targetIdentifier) {
+      alert('Error: Product identifier not found.');
       return;
     }
 
     const newStock = product.stock > 0 ? 0 : 10;
 
     try {
-      const res = await fetch(`/api/products/${encodeURIComponent(identifier)}`, {
+      const res = await fetch(`/api/products/${encodeURIComponent(targetIdentifier)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stock: newStock }),
       });
       const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to update stock.');
+      if (data.success) {
+        fetchProducts();
+      } else {
+        alert('Stock update fail: ' + data.error);
       }
-
-      await fetchProducts();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error occurred.';
-      console.error('Stock update failed:', message);
-      alert(`Stock update fail: ${message}`);
+      alert('Stock request processing error.');
     }
   };
 
@@ -154,7 +143,7 @@ export default function AdminProductsPage() {
       <main className="max-w-6xl mx-auto px-4 py-10 flex-1 w-full space-y-10">
         <h1 className="font-serif text-3xl font-bold text-[#6B1D2F]">Admin Product Management</h1>
 
-        {/* Form Section: Add New Product */}
+        {/* Form Section */}
         <div className="bg-white p-6 md:p-8 rounded-lg border border-stone-200 shadow-sm">
           <h2 className="font-serif text-xl font-bold text-stone-800 border-b pb-3 mb-6">
             Add New Lucknowi Collection
@@ -254,16 +243,25 @@ export default function AdminProductsPage() {
           </form>
         </div>
 
-        {/* Existing Products List Section */}
+        {/* Existing Products Section */}
         <div className="bg-white p-6 md:p-8 rounded-lg border border-stone-200 shadow-sm">
-          <h2 className="font-serif text-xl font-bold text-stone-800 border-b pb-3 mb-6">
-            All Added Products ({products.length})
-          </h2>
+          <div className="flex justify-between items-center border-b pb-3 mb-6">
+            <h2 className="font-serif text-xl font-bold text-stone-800">
+              All Added Products ({products.length})
+            </h2>
+            <button
+              type="button"
+              onClick={fetchProducts}
+              className="text-xs bg-stone-100 text-stone-700 px-3 py-1.5 rounded font-bold hover:bg-stone-200"
+            >
+              🔄 Refresh List
+            </button>
+          </div>
 
           {loading ? (
             <p className="text-xs text-stone-500 py-4">Loading products list...</p>
           ) : products.length === 0 ? (
-            <p className="text-xs text-stone-500 py-4">Abhi koi products add nahi hain.</p>
+            <p className="text-xs text-stone-500 py-4">Abhi koi products database mein nahi hain.</p>
           ) : (
             <div className="divide-y divide-stone-200">
               {products.map((prod, index) => (
