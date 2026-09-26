@@ -1,67 +1,53 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 const prisma = globalForPrisma.prisma || new PrismaClient();
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
-// 1. DELETE Product Handler
-export async function DELETE(
-  req: NextRequest,
-  context: any
-) {
+export async function GET() {
   try {
-    const params = await context.params;
-    const id = params?.id;
-
-    if (!id || id === 'undefined') {
-      return NextResponse.json(
-        { success: false, error: 'Valid Product ID is required' },
-        { status: 400 }
-      );
-    }
-
-    await prisma.product.delete({
-      where: { id: String(id) },
+    const products = await prisma.product.findMany({
+      orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({ success: true, message: 'Product deleted' });
+    // Ensure every item guarantees a clean 'id' property
+    const formattedProducts = products.map((p: any) => ({
+      ...p,
+      id: p.id || p._id || p.slug || String(p.name),
+    }));
+
+    return NextResponse.json(formattedProducts);
   } catch (error: any) {
-    console.error('Delete error:', error);
+    console.error('Fetch products error:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Delete failed' },
+      { success: false, error: 'Failed to fetch products' },
       { status: 500 }
     );
   }
 }
 
-// 2. PATCH (Stock Toggle) Handler
-export async function PATCH(
-  req: NextRequest,
-  context: any
-) {
+export async function POST(req: Request) {
   try {
-    const params = await context.params;
-    const id = params?.id;
-    const { stock } = await req.json();
+    const body = await req.json();
+    const { name, price, category, image, stock, description } = body;
 
-    if (!id || id === 'undefined') {
-      return NextResponse.json(
-        { success: false, error: 'Valid Product ID is required' },
-        { status: 400 }
-      );
-    }
-
-    const updatedProduct = await prisma.product.update({
-      where: { id: String(id) },
-      data: { stock: parseInt(stock) || 0 },
+    const newProduct = await prisma.product.create({
+      data: {
+        name: String(name || ''),
+        price: parseFloat(price) || 0,
+        category: String(category || ''),
+        image: String(image || ''),
+        stock: parseInt(stock) || 0,
+        description: String(description || ''),
+      },
     });
 
-    return NextResponse.json({ success: true, product: updatedProduct });
+    return NextResponse.json({ success: true, product: newProduct });
   } catch (error: any) {
-    console.error('Stock update error:', error);
+    console.error('Product creation error:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Update failed' },
+      { success: false, error: error.message || 'Server error' },
       { status: 500 }
     );
   }
