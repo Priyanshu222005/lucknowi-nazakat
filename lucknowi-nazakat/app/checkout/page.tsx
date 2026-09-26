@@ -2,308 +2,333 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
 import { useCart } from '@/context/CartContext';
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, removeFromCart, clearCart } = useCart();
+  const { cart, getCartTotal, clearCart } = useCart();
 
-  const items = Array.isArray(cart) ? cart : [];
+  const [paymentMethod, setPaymentMethod] = useState<'ONLINE' | 'COD'>('ONLINE');
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    fullName: '',
+    phone: '',
+    address: '',
+    city: '',
+    state: '',
+    pincode: '',
+  });
 
-  // Shipping form state
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [city, setCity] = useState('');
-  const [state, setState] = useState('');
-  const [pincode, setPincode] = useState('');
+  const totalAmount = getCartTotal();
 
-  // Coupon state
-  const [couponCode, setCouponCode] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
-  const [discountAmount, setDiscountAmount] = useState(0);
-  const [couponError, setCouponError] = useState('');
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
-  const [placingOrder, setPlacingOrder] = useState(false);
-  const [formError, setFormError] = useState('');
-
-  const cartSubtotal = items.reduce(
-    (sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1),
-    0
-  );
-
-  const handleApplyCoupon = async () => {
-    setCouponError('');
-    if (!couponCode.trim()) return;
-
-    try {
-      const res = await fetch('/api/coupons/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: couponCode, cartTotal: cartSubtotal }),
-      });
-
-      const data = await res.json();
-
-      if (res.ok && data.success) {
-        setAppliedCoupon(data.code);
-        setDiscountAmount(data.discountAmount);
-        setCouponCode('');
-      } else {
-        setCouponError(data.error || 'Invalid coupon code');
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (window.Razorpay) {
+        resolve(true);
+        return;
       }
-    } catch {
-      setCouponError('Failed to validate coupon code.');
-    }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
   };
 
-  const grandTotal = Math.max(0, cartSubtotal - discountAmount);
+  const handleCheckout = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  const validateForm = () => {
-    if (!fullName.trim()) return 'Naam daalna zaroori hai.';
-    if (!phone.trim() || phone.trim().length < 10) return 'Sahi phone number daalein (10 digit).';
-    if (!address.trim()) return 'Address daalna zaroori hai.';
-    if (!city.trim()) return 'City daalna zaroori hai.';
-    if (!state.trim()) return 'State daalna zaroori hai.';
-    if (!pincode.trim() || pincode.trim().length < 6) return 'Sahi pincode daalein (6 digit).';
-    if (items.length === 0) return 'Aapka cart khaali hai.';
-    return '';
-  };
-
-  const handlePlaceOrder = async () => {
-    setFormError('');
-    const error = validateForm();
-    if (error) {
-      setFormError(error);
+    if (!formData.fullName || !formData.phone || !formData.address || !formData.pincode) {
+      alert('Kripya saari mandatory shipping details fill karein.');
       return;
     }
 
-    setPlacingOrder(true);
+    if (cart.length === 0) {
+      alert('Aapka cart khaali hai.');
+      return;
+    }
+
+    setLoading(true);
 
     try {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerName: fullName,
-          phone,
-          address,
-          city,
-          state,
-          pincode,
-          items: items.map((item: any) => ({
-            productId: item.id,
-            name: item.name,
-            price: item.price,
-            size: item.size,
-            quantity: item.quantity || 1,
-          })),
-          couponCode: appliedCoupon,
-          discount: discountAmount,
-          subtotal: cartSubtotal,
-          total: grandTotal,
-          paymentMethod: 'COD',
-        }),
-      });
+      if (paymentMethod === 'COD') {
+        // Handle Cash on Delivery Order
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: cart,
+            totalAmount,
+            shippingInfo: formData,
+            paymentMethod: 'COD',
+            paymentStatus: 'PENDING',
+          }),
+        });
 
-      let data;
-      try {
-        data = await res.json();
-      } catch {
-        setFormError('Server ne sahi response nahi diya. Dobara try karein.');
-        setPlacingOrder(false);
-        return;
-      }
-
-      if (res.ok && data.success) {
-        if (typeof clearCart === 'function') clearCart();
-        alert('Order successfully place ho gaya!');
-        router.push('/account');
+        const data = await res.json();
+        if (data.success) {
+          clearCart();
+          alert('✅ Order Placed Successfully via Cash on Delivery!');
+          router.push('/account');
+        } else {
+          alert('Order place karne mein dikkat aayi: ' + data.error);
+        }
       } else {
-        setFormError(data.error || 'Order place nahi ho paaya. Dobara try karein.');
+        // Handle Online Payment via Razorpay
+        const isLoaded = await loadRazorpayScript();
+        if (!isLoaded) {
+          alert('Razorpay SDK load nahi ho paaya. Internet connection check karein.');
+          setLoading(false);
+          return;
+        }
+
+        const orderRes = await fetch('/api/razorpay', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: totalAmount }),
+        });
+
+        const orderData = await orderRes.json();
+
+        if (!orderData.success) {
+          alert('Razorpay Order create nahi ho saka: ' + orderData.error);
+          setLoading(false);
+          return;
+        }
+
+        const options = {
+          key: orderData.key,
+          amount: orderData.order.amount,
+          currency: orderData.order.currency,
+          name: 'Lucknowi Nazakat',
+          description: 'Authentic Chikankari Purchase',
+          order_id: orderData.order.id,
+          handler: async function (response: any) {
+            const verifyRes = await fetch('/api/razorpay/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(response),
+            });
+
+            const verifyData = await verifyRes.json();
+
+            if (verifyData.success) {
+              await fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  items: cart,
+                  totalAmount,
+                  shippingInfo: formData,
+                  paymentMethod: 'ONLINE',
+                  paymentStatus: 'PAID',
+                  razorpayPaymentId: response.razorpay_payment_id,
+                }),
+              });
+
+              clearCart();
+              alert('🎉 Payment Successful! Order Placed.');
+              router.push('/account');
+            } else {
+              alert('Payment Verification Failed!');
+            }
+          },
+          prefill: {
+            name: formData.fullName,
+            contact: formData.phone,
+          },
+          theme: {
+            color: '#6B1D2F',
+          },
+        };
+
+        const paymentObject = new window.Razorpay(options);
+        paymentObject.open();
       }
     } catch (err: any) {
-      setFormError('Network Error: ' + err.message);
+      console.error('Checkout error:', err);
+      alert('Checkout processing error.');
     } finally {
-      setPlacingOrder(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] py-10 px-4">
-      <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Shipping Information */}
-        <div className="bg-white p-6 md:p-8 rounded-lg border border-stone-200 shadow-sm space-y-5">
-          <h2 className="text-xl font-serif font-bold text-gray-900 border-b pb-3">
-            Shipping Information
-          </h2>
+    <div className="min-h-screen flex flex-col bg-[#FAF9F6]">
+      <Navbar />
 
-          <div className="space-y-4">
+      <main className="max-w-6xl mx-auto px-4 py-10 flex-1 w-full">
+        <h1 className="font-serif text-3xl font-bold text-[#6B1D2F] mb-8">Checkout</h1>
+
+        <form onSubmit={handleCheckout} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Shipping Form */}
+          <div className="lg:col-span-7 bg-white p-6 rounded-lg border border-stone-200 shadow-sm space-y-4">
+            <h2 className="font-serif text-xl font-bold text-stone-800 border-b pb-3">Shipping Information</h2>
+
             <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Full Name *</label>
+              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">Full Name *</label>
               <input
                 type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
+                name="fullName"
+                required
+                value={formData.fullName}
+                onChange={handleInputChange}
                 placeholder="Your full name"
-                className="w-full px-3 py-2.5 border border-stone-300 rounded-lg text-sm focus:ring-1 focus:ring-[#6B1D2F] outline-none"
+                className="w-full border border-stone-300 rounded p-2.5 text-xs focus:outline-none focus:border-[#6B1D2F]"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Phone Number *</label>
+              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">Phone Number *</label>
               <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                type="text"
+                name="phone"
+                required
+                value={formData.phone}
+                onChange={handleInputChange}
                 placeholder="10-digit mobile number"
-                className="w-full px-3 py-2.5 border border-stone-300 rounded-lg text-sm focus:ring-1 focus:ring-[#6B1D2F] outline-none"
+                className="w-full border border-stone-300 rounded p-2.5 text-xs focus:outline-none focus:border-[#6B1D2F]"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Address *</label>
+              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">Address *</label>
               <textarea
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
+                name="address"
+                required
+                rows={3}
+                value={formData.address}
+                onChange={handleInputChange}
                 placeholder="House no, street, locality"
-                rows={2}
-                className="w-full px-3 py-2.5 border border-stone-300 rounded-lg text-sm focus:ring-1 focus:ring-[#6B1D2F] outline-none"
+                className="w-full border border-stone-300 rounded p-2.5 text-xs focus:outline-none focus:border-[#6B1D2F]"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">City *</label>
+                <label className="block text-xs font-bold uppercase text-stone-700 mb-1">City *</label>
                 <input
                   type="text"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
+                  name="city"
+                  required
+                  value={formData.city}
+                  onChange={handleInputChange}
                   placeholder="City"
-                  className="w-full px-3 py-2.5 border border-stone-300 rounded-lg text-sm focus:ring-1 focus:ring-[#6B1D2F] outline-none"
+                  className="w-full border border-stone-300 rounded p-2.5 text-xs focus:outline-none focus:border-[#6B1D2F]"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">State *</label>
+                <label className="block text-xs font-bold uppercase text-stone-700 mb-1">State *</label>
                 <input
                   type="text"
-                  value={state}
-                  onChange={(e) => setState(e.target.value)}
+                  name="state"
+                  required
+                  value={formData.state}
+                  onChange={handleInputChange}
                   placeholder="State"
-                  className="w-full px-3 py-2.5 border border-stone-300 rounded-lg text-sm focus:ring-1 focus:ring-[#6B1D2F] outline-none"
+                  className="w-full border border-stone-300 rounded p-2.5 text-xs focus:outline-none focus:border-[#6B1D2F]"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Pincode *</label>
+              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">Pincode *</label>
               <input
                 type="text"
-                value={pincode}
-                onChange={(e) => setPincode(e.target.value)}
+                name="pincode"
+                required
+                value={formData.pincode}
+                onChange={handleInputChange}
                 placeholder="6-digit pincode"
-                className="w-full md:w-1/2 px-3 py-2.5 border border-stone-300 rounded-lg text-sm focus:ring-1 focus:ring-[#6B1D2F] outline-none"
+                className="w-full border border-stone-300 rounded p-2.5 text-xs focus:outline-none focus:border-[#6B1D2F]"
               />
             </div>
           </div>
-        </div>
 
-        {/* Order Summary */}
-        <div className="bg-white p-6 md:p-8 rounded-lg border border-stone-200 shadow-sm space-y-5 h-fit">
-          <h2 className="text-xl font-serif font-bold text-gray-900 border-b pb-3">Order Summary</h2>
+          {/* Order Summary & Payment Mode Toggle */}
+          <div className="lg:col-span-5 bg-white p-6 rounded-lg border border-stone-200 shadow-sm flex flex-col justify-between space-y-6">
+            <div className="space-y-4">
+              <h2 className="font-serif text-xl font-bold text-stone-800 border-b pb-3">Order Summary</h2>
 
-          {items.length === 0 ? (
-            <p className="text-sm text-stone-500">Aapka cart khaali hai.</p>
-          ) : (
-            <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
-              {items.map((item: any, idx: number) => (
-                <div key={idx} className="flex items-center justify-between text-sm border-b pb-2">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={item.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800'}
-                      alt={item.name}
-                      className="w-12 h-12 object-cover rounded"
-                    />
-                    <div>
-                      <p className="font-semibold text-gray-800">{item.name}</p>
-                      <p className="text-xs text-stone-500">
-                        Size: {item.size || 'M'} × {item.quantity || 1}
-                      </p>
+              {cart.length === 0 ? (
+                <p className="text-xs text-stone-500">Aapka cart khaali hai.</p>
+              ) : (
+                <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                  {cart.map((item: any, idx: number) => (
+                    <div key={idx} className="flex justify-between items-center text-xs border-b pb-2">
+                      <div>
+                        <p className="font-bold text-stone-800">{item.name}</p>
+                        <p className="text-stone-500">Qty: {item.quantity} | Size: {item.size || 'M'}</p>
+                      </div>
+                      <span className="font-bold text-[#6B1D2F]">₹{item.price * item.quantity}</span>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <p className="font-semibold text-gray-800">₹{(item.price || 0) * (item.quantity || 1)}</p>
-                    <button
-                      onClick={() => removeFromCart(item.id, item.size)}
-                      className="text-xs text-red-500 hover:text-red-700 font-bold"
-                      title="Remove item"
-                    >
-                      ✕
-                    </button>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              <div className="border-t pt-3 flex justify-between items-center font-bold text-base text-stone-900">
+                <span>Total Payable</span>
+                <span className="text-[#6B1D2F]">₹{totalAmount}</span>
+              </div>
+
+              {/* Payment Method Selector */}
+              <div className="pt-4 border-t">
+                <label className="block text-xs font-bold uppercase text-stone-700 mb-2">Select Payment Method</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('ONLINE')}
+                    className={`p-3 text-xs font-bold rounded border transition ${
+                      paymentMethod === 'ONLINE'
+                        ? 'bg-[#6B1D2F] text-white border-[#6B1D2F] shadow-sm'
+                        : 'bg-white text-stone-700 border-stone-300 hover:border-[#6B1D2F]'
+                    }`}
+                  >
+                    Online Pay (UPI / Card)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('COD')}
+                    className={`p-3 text-xs font-bold rounded border transition ${
+                      paymentMethod === 'COD'
+                        ? 'bg-[#6B1D2F] text-white border-[#6B1D2F] shadow-sm'
+                        : 'bg-white text-stone-700 border-stone-300 hover:border-[#6B1D2F]'
+                    }`}
+                  >
+                    Cash on Delivery
+                  </button>
+                </div>
+              </div>
             </div>
-          )}
 
-          <div className="flex justify-between text-sm pt-2">
-            <span>Subtotal</span>
-            <span>₹{cartSubtotal}</span>
+            <button
+              type="submit"
+              disabled={loading || cart.length === 0}
+              className="w-full bg-[#6B1D2F] text-white py-3.5 rounded text-xs font-bold uppercase tracking-wider hover:bg-[#521624] transition disabled:opacity-50 cursor-pointer shadow"
+            >
+              {loading
+                ? 'Processing...'
+                : paymentMethod === 'ONLINE'
+                ? `Pay ₹${totalAmount} Now (Online)`
+                : 'Place Order (Cash on Delivery)'}
+            </button>
           </div>
+        </form>
+      </main>
 
-          {/* Coupon Input */}
-          <div className="space-y-2 pt-2 border-t">
-            <label className="text-xs font-semibold uppercase text-stone-600">Apply Promo Code</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Enter Code (e.g. NAZAKAT10)"
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value)}
-                className="flex-1 px-3 py-2 border border-stone-300 rounded text-sm uppercase focus:ring-1 focus:ring-[#6B1D2F] outline-none"
-              />
-              <button
-                onClick={handleApplyCoupon}
-                className="bg-[#6B1D2F] text-[#F3E5AB] px-4 py-2 rounded text-xs font-bold uppercase hover:bg-[#521624] transition"
-              >
-                Apply
-              </button>
-            </div>
-            {couponError && <p className="text-xs text-red-600">{couponError}</p>}
-            {appliedCoupon && (
-              <p className="text-xs text-green-700 font-medium">
-                ✓ Coupon "{appliedCoupon}" applied (-₹{discountAmount})
-              </p>
-            )}
-          </div>
-
-          {discountAmount > 0 && (
-            <div className="flex justify-between text-sm text-green-700 font-medium">
-              <span>Discount Applied</span>
-              <span>-₹{discountAmount}</span>
-            </div>
-          )}
-
-          <div className="flex justify-between text-lg font-bold border-t pt-3 text-[#6B1D2F]">
-            <span>Total Payable</span>
-            <span>₹{grandTotal}</span>
-          </div>
-
-          {formError && (
-            <p className="text-sm text-red-600 font-medium bg-red-50 border border-red-200 rounded p-2">
-              {formError}
-            </p>
-          )}
-
-          <button
-            onClick={handlePlaceOrder}
-            disabled={placingOrder || items.length === 0}
-            className="w-full py-3.5 bg-[#6B1D2F] hover:bg-[#521624] text-white font-bold text-sm uppercase tracking-wider rounded-lg shadow transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {placingOrder ? 'Placing Order...' : 'Place Order (Cash on Delivery)'}
-          </button>
-        </div>
-      </div>
+      <Footer />
     </div>
   );
 }

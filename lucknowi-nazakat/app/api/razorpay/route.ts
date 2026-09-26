@@ -1,48 +1,35 @@
 import { NextResponse } from 'next/server';
-import Razorpay from 'razorpay';
+import crypto from 'crypto';
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const { amount, currency = 'INR' } = await request.json();
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = await req.json();
 
-    if (!amount) {
-      return NextResponse.json({ error: 'Amount is required' }, { status: 400 });
-    }
+    const body = razorpay_order_id + '|' + razorpay_payment_id;
 
-    const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    const expectedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
+      .update(body.toString())
+      .digest('hex');
 
-    // Check if actual test keys exist and are not placeholder dummies
-    const isRealKeyAvailable = keyId && keySecret && !keyId.includes('1234567890') && !keySecret.includes('mock');
+    const isAuthentic = expectedSignature === razorpay_signature;
 
-    if (isRealKeyAvailable) {
-      const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
-      const order = await razorpay.orders.create({
-        amount: Math.round(amount * 100),
-        currency,
-        receipt: `receipt_${Date.now()}`,
+    if (isAuthentic) {
+      return NextResponse.json({
+        success: true,
+        message: 'Payment verified successfully',
       });
-      return NextResponse.json(order, { status: 200 });
+    } else {
+      return NextResponse.json(
+        { success: false, error: 'Invalid payment signature' },
+        { status: 400 }
+      );
     }
-
-    // Mock Order Response for Local Development Testing
-    const mockOrder = {
-      id: `order_mock_${Date.now()}`,
-      entity: 'order',
-      amount: Math.round(amount * 100),
-      amount_paid: 0,
-      amount_due: Math.round(amount * 100),
-      currency: currency,
-      receipt: `receipt_mock_${Date.now()}`,
-      status: 'created',
-      attempts: 0,
-      notes: [],
-      created_at: Math.floor(Date.now() / 1000),
-    };
-
-    return NextResponse.json(mockOrder, { status: 200 });
   } catch (error: any) {
-    console.error('Razorpay Order Creation Error:', error);
-    return NextResponse.json({ error: error.message || 'Payment initiation failed' }, { status: 500 });
+    console.error('Razorpay verification error:', error);
+    return NextResponse.json(
+      { success: false, error: error.message || 'Payment verification failed' },
+      { status: 500 }
+    );
   }
 }
