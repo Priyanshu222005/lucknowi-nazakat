@@ -12,7 +12,10 @@ export default function CartDrawer() {
   const setIsOpen = cartContext?.setIsOpen;
   const isOpen = cartContext?.isOpen || false;
 
-  const subtotal = cart.reduce((acc: number, item: any) => acc + (Number(item.price) || 0) * (item.quantity || 1), 0);
+  const subtotal = cart.reduce(
+    (acc: number, item: any) => acc + (Number(item.price) || 0) * (item.quantity || 1),
+    0
+  );
 
   if (!isOpen) return null;
 
@@ -45,8 +48,8 @@ export default function CartDrawer() {
           ) : (
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
               {cart.map((item: any) => (
-                <div 
-                  key={`${item.id}-${item.size}`} 
+                <div
+                  key={`${item.id}-${item.size}`}
                   className="flex gap-4 p-3 bg-white border border-[#6B1D2F]/10 rounded-lg shadow-sm"
                 >
                   <img
@@ -61,7 +64,7 @@ export default function CartDrawer() {
                     <h4 className="font-bold text-xs text-stone-900 line-clamp-1">{item.name}</h4>
                     <p className="text-[11px] text-stone-500">Size: <span className="font-semibold text-stone-800">{item.size || 'M'}</span></p>
                     <p className="text-xs font-bold text-[#6B1D2F]">₹{item.price}</p>
-                    
+
                     <div className="flex items-center justify-between pt-1">
                       <div className="flex items-center space-x-2 border border-stone-200 rounded bg-stone-50">
                         <button
