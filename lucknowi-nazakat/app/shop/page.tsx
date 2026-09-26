@@ -12,7 +12,8 @@ export default function ShopPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortBy, setSortBy] = useState('latest');
-  const { addToCart } = useCart();
+  const cartContext = useCart();
+  const addToCart = cartContext?.addToCart;
 
   useEffect(() => {
     fetch('/api/products')
@@ -167,7 +168,7 @@ export default function ShopPage() {
                     </Link>
                     <button
                       onClick={() =>
-                        addToCart({
+                        addToCart?.({
                           id: p.id,
                           name: p.name,
                           price: p.price,
