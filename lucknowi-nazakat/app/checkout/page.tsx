@@ -1,25 +1,21 @@
 'use client';
 
-'use client';
-
-export const dynamic = 'force-dynamic';
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useCart } from '@/context/CartContext';
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
+
+export const dynamic = 'force-dynamic';
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { cart, getCartTotal, clearCart } = useCart();
+  const cartContext = useCart();
+  const cart = cartContext?.cart || [];
+  const getCartTotal = cartContext?.getCartTotal;
+  const clearCart = cartContext?.clearCart;
 
-  const [paymentMethod, setPaymentMethod] = useState<'ONLINE' | 'COD'>('ONLINE');
+  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
@@ -30,27 +26,31 @@ export default function CheckoutPage() {
     pincode: '',
   });
 
-  const totalAmount = getCartTotal();
+  const WHATSAPP_NUMBER = '919934578298';
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#FAF9F6]">
+        <Navbar />
+        <div className="flex-1 flex justify-center items-center text-xs font-semibold text-stone-500 py-20">
+          Loading Checkout...
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  const totalAmount = getCartTotal ? getCartTotal() : 0;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const loadRazorpayScript = () => {
-    return new Promise((resolve) => {
-      if (window.Razorpay) {
-        resolve(true);
-        return;
-      }
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
-  const handleCheckout = async (e: React.FormEvent) => {
+  const handleWhatsAppCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.fullName || !formData.phone || !formData.address || !formData.pincode) {
@@ -66,103 +66,46 @@ export default function CheckoutPage() {
     setLoading(true);
 
     try {
-      if (paymentMethod === 'COD') {
-        // Handle Cash on Delivery Order
-        const res = await fetch('/api/orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            items: cart,
-            totalAmount,
-            shippingInfo: formData,
-            paymentMethod: 'COD',
-            paymentStatus: 'PENDING',
-          }),
-        });
+      await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: cart,
+          totalAmount,
+          shippingInfo: formData,
+          paymentMethod: 'WHATSAPP_UPI',
+          paymentStatus: 'PENDING',
+        }),
+      });
 
-        const data = await res.json();
-        if (data.success) {
-          clearCart();
-          alert('✅ Order Placed Successfully via Cash on Delivery!');
-          router.push('/account');
-        } else {
-          alert('Order place karne mein dikkat aayi: ' + data.error);
-        }
-      } else {
-        // Handle Online Payment via Razorpay
-        const isLoaded = await loadRazorpayScript();
-        if (!isLoaded) {
-          alert('Razorpay SDK load nahi ho paaya. Internet connection check karein.');
-          setLoading(false);
-          return;
-        }
+      const orderItemsText = cart
+        .map((item: any) => `• ${item.name} (${item.quantity}x) - Size: ${item.size || 'M'} - ₹${item.price * item.quantity}`)
+        .join('\n');
 
-        const orderRes = await fetch('/api/razorpay', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: totalAmount }),
-        });
+      const messageText = 
+`🛍️ *NEW ORDER - LUCKNOWI NAZAKAT*
 
-        const orderData = await orderRes.json();
+📋 *Order Details:*
+${orderItemsText}
 
-        if (!orderData.success) {
-          alert('Razorpay Order create nahi ho saka: ' + orderData.error);
-          setLoading(false);
-          return;
-        }
+💰 *Total Amount:* ₹${totalAmount}
 
-        const options = {
-          key: orderData.key,
-          amount: orderData.order.amount,
-          currency: orderData.order.currency,
-          name: 'Lucknowi Nazakat',
-          description: 'Authentic Chikankari Purchase',
-          order_id: orderData.order.id,
-          handler: async function (response: any) {
-            const verifyRes = await fetch('/api/razorpay/verify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(response),
-            });
+📍 *Shipping Address:*
+*Name:* ${formData.fullName}
+*Phone:* ${formData.phone}
+*Address:* ${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}
 
-            const verifyData = await verifyRes.json();
+_Kripya mujhe Payment (QR/UPI ID) details bhejein taaki main order confirm kar saku._`;
 
-            if (verifyData.success) {
-              await fetch('/api/orders', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  items: cart,
-                  totalAmount,
-                  shippingInfo: formData,
-                  paymentMethod: 'ONLINE',
-                  paymentStatus: 'PAID',
-                  razorpayPaymentId: response.razorpay_payment_id,
-                }),
-              });
+      const encodedMessage = encodeURIComponent(messageText);
+      const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedMessage}`;
 
-              clearCart();
-              alert('🎉 Payment Successful! Order Placed.');
-              router.push('/account');
-            } else {
-              alert('Payment Verification Failed!');
-            }
-          },
-          prefill: {
-            name: formData.fullName,
-            contact: formData.phone,
-          },
-          theme: {
-            color: '#6B1D2F',
-          },
-        };
-
-        const paymentObject = new window.Razorpay(options);
-        paymentObject.open();
-      }
-    } catch (err: any) {
+      if (clearCart) clearCart();
+      window.open(whatsappUrl, '_blank');
+      router.push('/account');
+    } catch (err) {
       console.error('Checkout error:', err);
-      alert('Checkout processing error.');
+      alert('Order process karne mein error aaya.');
     } finally {
       setLoading(false);
     }
@@ -175,8 +118,7 @@ export default function CheckoutPage() {
       <main className="max-w-6xl mx-auto px-4 py-10 flex-1 w-full">
         <h1 className="font-serif text-3xl font-bold text-[#6B1D2F] mb-8">Checkout</h1>
 
-        <form onSubmit={handleCheckout} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Shipping Form */}
+        <form onSubmit={handleWhatsAppCheckout} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-7 bg-white p-6 rounded-lg border border-stone-200 shadow-sm space-y-4">
             <h2 className="font-serif text-xl font-bold text-stone-800 border-b pb-3">Shipping Information</h2>
 
@@ -260,7 +202,6 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {/* Order Summary & Payment Mode Toggle */}
           <div className="lg:col-span-5 bg-white p-6 rounded-lg border border-stone-200 shadow-sm flex flex-col justify-between space-y-6">
             <div className="space-y-4">
               <h2 className="font-serif text-xl font-bold text-stone-800 border-b pb-3">Order Summary</h2>
@@ -285,47 +226,14 @@ export default function CheckoutPage() {
                 <span>Total Payable</span>
                 <span className="text-[#6B1D2F]">₹{totalAmount}</span>
               </div>
-
-              {/* Payment Method Selector */}
-              <div className="pt-4 border-t">
-                <label className="block text-xs font-bold uppercase text-stone-700 mb-2">Select Payment Method</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('ONLINE')}
-                    className={`p-3 text-xs font-bold rounded border transition ${
-                      paymentMethod === 'ONLINE'
-                        ? 'bg-[#6B1D2F] text-white border-[#6B1D2F] shadow-sm'
-                        : 'bg-white text-stone-700 border-stone-300 hover:border-[#6B1D2F]'
-                    }`}
-                  >
-                    Online Pay (UPI / Card)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('COD')}
-                    className={`p-3 text-xs font-bold rounded border transition ${
-                      paymentMethod === 'COD'
-                        ? 'bg-[#6B1D2F] text-white border-[#6B1D2F] shadow-sm'
-                        : 'bg-white text-stone-700 border-stone-300 hover:border-[#6B1D2F]'
-                    }`}
-                  >
-                    Cash on Delivery
-                  </button>
-                </div>
-              </div>
             </div>
 
             <button
               type="submit"
               disabled={loading || cart.length === 0}
-              className="w-full bg-[#6B1D2F] text-white py-3.5 rounded text-xs font-bold uppercase tracking-wider hover:bg-[#521624] transition disabled:opacity-50 cursor-pointer shadow"
+              className="w-full bg-[#25D366] text-white py-3.5 rounded text-xs font-bold uppercase tracking-wider hover:bg-[#1ebd59] transition disabled:opacity-50 cursor-pointer shadow flex items-center justify-center gap-2"
             >
-              {loading
-                ? 'Processing...'
-                : paymentMethod === 'ONLINE'
-                ? `Pay ₹${totalAmount} Now (Online)`
-                : 'Place Order (Cash on Delivery)'}
+              {loading ? 'Opening WhatsApp...' : '📲 Pay & Order via WhatsApp'}
             </button>
           </div>
         </form>
