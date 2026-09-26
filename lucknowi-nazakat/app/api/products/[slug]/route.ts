@@ -6,7 +6,6 @@ export async function GET(
   { params }: { params: { slug: string } | Promise<{ slug: string }> }
 ) {
   try {
-    // Handle both Promise and direct object params
     const resolvedParams = params instanceof Promise ? await params : params;
     const { slug } = resolvedParams;
 
@@ -14,7 +13,6 @@ export async function GET(
       return NextResponse.json({ error: 'Slug parameter missing' }, { status: 400 });
     }
 
-    // Safely query database
     const product = await prisma.product.findFirst({
       where: {
         OR: [
@@ -31,8 +29,7 @@ export async function GET(
     return NextResponse.json({ product });
   } catch (error: any) {
     console.error('API Slug Error:', error?.message || error);
-    
-    // Fallback search by ID directly
+
     try {
       const resolvedParams = params instanceof Promise ? await params : params;
       const productById = await prisma.product.findUnique({
@@ -45,6 +42,32 @@ export async function GET(
 
     return NextResponse.json(
       { error: 'Failed to fetch product', message: error?.message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: { slug: string } | Promise<{ slug: string }> }
+) {
+  try {
+    const resolvedParams = params instanceof Promise ? await params : params;
+    const { slug } = resolvedParams;
+
+    if (!slug) {
+      return NextResponse.json({ success: false, error: 'ID missing' }, { status: 400 });
+    }
+
+    await prisma.product.delete({
+      where: { id: slug },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Delete Product Error:', error?.message || error);
+    return NextResponse.json(
+      { success: false, error: error?.message || 'Failed to delete product' },
       { status: 500 }
     );
   }
