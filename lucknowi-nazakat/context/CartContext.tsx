@@ -15,6 +15,7 @@ export interface CartItem {
 export interface CartContextType {
   cart: CartItem[];
   isOpen: boolean;
+  totalAmount: number;
   setIsOpen: (isOpen: boolean) => void;
   addToCart: (product: any) => void;
   removeFromCart: (id: string) => void;
@@ -42,6 +43,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     localStorage.setItem('lucknowi_cart', JSON.stringify(cart));
   }, [cart]);
+
+  const totalAmount = cart.reduce(
+    (acc: number, item: CartItem) => acc + (Number(item.price) || 0) * (item.quantity || 1),
+    0
+  );
 
   const addToCart = (product: any) => {
     setCart((prevCart) => {
@@ -84,6 +90,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       value={{
         cart,
         isOpen,
+        totalAmount,
         setIsOpen,
         addToCart,
         removeFromCart,
@@ -97,6 +104,5 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useCart() {
-  const context = useContext(CartContext);
-  return context;
+  return useContext(CartContext);
 }
