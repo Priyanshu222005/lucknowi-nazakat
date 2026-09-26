@@ -1,73 +1,53 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
 
-export async function GET(
-  req: Request,
-  { params }: { params: { slug: string } | Promise<{ slug: string }> }
+const globalForPrisma = global as unknown as { prisma: PrismaClient };
+const prisma = globalForPrisma.prisma || new PrismaClient();
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+
+// 1. DELETE Product
+export async function DELETE(
+  req: NextRequest,
+  context: any
 ) {
   try {
-    const resolvedParams = params instanceof Promise ? await params : params;
-    const { slug } = resolvedParams;
+    const params = await context.params;
+    const id = params?.id;
 
-    if (!slug) {
-      return NextResponse.json({ error: 'Slug parameter missing' }, { status: 400 });
-    }
-
-    const product = await prisma.product.findFirst({
-      where: {
-        OR: [
-          { id: slug },
-          { slug: slug },
-        ],
-      },
+    await prisma.product.delete({
+      where: { id },
     });
 
-    if (!product) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({ product });
+    return NextResponse.json({ success: true, message: 'Product deleted' });
   } catch (error: any) {
-    console.error('API Slug Error:', error?.message || error);
-
-    try {
-      const resolvedParams = params instanceof Promise ? await params : params;
-      const productById = await prisma.product.findUnique({
-        where: { id: resolvedParams.slug },
-      });
-      if (productById) {
-        return NextResponse.json({ product: productById });
-      }
-    } catch (e) {}
-
+    console.error('Delete error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch product', message: error?.message },
+      { success: false, error: error.message || 'Delete failed' },
       { status: 500 }
     );
   }
 }
 
-export async function DELETE(
-  req: Request,
-  { params }: { params: { slug: string } | Promise<{ slug: string }> }
+// 2. PATCH (Update Stock)
+export async function PATCH(
+  req: NextRequest,
+  context: any
 ) {
   try {
-    const resolvedParams = params instanceof Promise ? await params : params;
-    const { slug } = resolvedParams;
+    const params = await context.params;
+    const id = params?.id;
+    const { stock } = await req.json();
 
-    if (!slug) {
-      return NextResponse.json({ success: false, error: 'ID missing' }, { status: 400 });
-    }
-
-    await prisma.product.delete({
-      where: { id: slug },
+    const updatedProduct = await prisma.product.update({
+      where: { id },
+      data: { stock: parseInt(stock) },
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, product: updatedProduct });
   } catch (error: any) {
-    console.error('Delete Product Error:', error?.message || error);
+    console.error('Stock update error:', error);
     return NextResponse.json(
-      { success: false, error: error?.message || 'Failed to delete product' },
+      { success: false, error: error.message || 'Update failed' },
       { status: 500 }
     );
   }

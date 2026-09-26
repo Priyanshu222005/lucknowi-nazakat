@@ -1,262 +1,130 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { UploadCloud, CheckCircle2 } from 'lucide-react';
 
 export default function AdminProductsPage() {
-  const router = useRouter();
   const [products, setProducts] = useState<any[]>([]);
-
-  // Add Product form state
-  const [name, setName] = useState('');
-  const [price, setPrice] = useState('');
-  const [category, setCategory] = useState('Kurtis');
-  const [imageUrl, setImageUrl] = useState('');
-  const [stock, setStock] = useState('10');
-  const [description, setDescription] = useState('');
-  const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const fetchProducts = async () => {
-    const res = await fetch('/api/products');
-    const data = await res.json();
-    if (Array.isArray(data)) setProducts(data);
-    else if (data.products) setProducts(data.products);
+    try {
+      const res = await fetch('/api/products');
+      const data = await res.json();
+      if (Array.isArray(data)) setProducts(data);
+      else if (data.products) setProducts(data.products);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchProducts();
   }, []);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 400;
-        const scaleFactor = MAX_WIDTH / img.width;
-
-        canvas.width = img.width > MAX_WIDTH ? MAX_WIDTH : img.width;
-        canvas.height = img.width > MAX_WIDTH ? img.height * scaleFactor : img.height;
-
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.4);
-        setImageUrl(compressedBase64);
-        setUploading(false);
-      };
-    };
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !price || !imageUrl) {
-      alert('Kripya Name, Price aur Product Image select karein.');
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          price: parseFloat(price),
-          category,
-          image: imageUrl,
-          stock: parseInt(stock) || 10,
-          description,
-        }),
-      });
-
-      let data;
-      try {
-        data = await res.json();
-      } catch {
-        alert('Server ne JSON response nahi diya. Status: ' + res.status);
-        return;
-      }
-
-      if (res.ok && data.success) {
-        alert('Product successfully publish ho gaya!');
-        setName('');
-        setPrice('');
-        setCategory('Kurtis');
-        setImageUrl('');
-        setStock('10');
-        setDescription('');
-        fetchProducts();
-      } else {
-        alert(data.error || 'Database mein save nahi ho paaya.');
-      }
-    } catch (err: any) {
-      alert('Real Error: ' + err.message);
-    }
-  };
-
+  // Delete Product Handler
   const handleDelete = async (id: string) => {
-    if (!confirm('Kya aap is product ko delete karna chahte hain?')) return;
+    if (!confirm('Kya aap is product ko permanent remove karna chahte hain?')) return;
 
     try {
       const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
       const data = await res.json();
 
       if (data.success) {
-        alert('Product deleted!');
+        alert('✅ Product successfully removed!');
         fetchProducts();
       } else {
-        alert('Delete fail ho gaya: ' + (data.error || 'Unknown error'));
+        alert('Delete error: ' + (data.error || 'Failed to remove'));
       }
-    } catch (err: any) {
-      alert('Delete Error: ' + err.message);
+    } catch (err) {
+      alert('Delete request fail ho gaya.');
+    }
+  };
+
+  // Stock Toggle Handler (In Stock / Out of Stock)
+  const handleToggleStock = async (product: any) => {
+    const newStockStatus = product.stock > 0 ? 0 : 10; // 0 = Out of Stock, 10 = In Stock
+
+    try {
+      const res = await fetch(`/api/products/${product.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stock: newStockStatus }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        fetchProducts();
+      } else {
+        alert('Stock update fail: ' + data.error);
+      }
+    } catch (err) {
+      alert('Update request fail ho gaya.');
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-8">
-      {/* Add Product Form */}
-      <div className="bg-white p-8 rounded-xl shadow-md space-y-6">
-        <h1 className="text-2xl font-serif font-bold text-gray-900 border-b pb-4">
-          Add New Lucknowi Collection
-        </h1>
+    <div className="max-w-6xl mx-auto p-6 bg-[#FAF9F6] min-h-screen">
+      <h1 className="font-serif text-3xl font-bold text-[#6B1D2F] mb-6">Admin Panel - Manage Products</h1>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Product Name *</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Handcrafted White Chikankari Kurti"
-              className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-amber-800 outline-none"
-              required
-            />
-          </div>
+      <div className="bg-white p-6 rounded-lg border border-stone-200 shadow-sm">
+        <h2 className="text-lg font-bold text-stone-800 mb-4">All Products ({products.length})</h2>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Price (₹) *</label>
-              <input
-                type="number"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="2499"
-                className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-amber-800 outline-none"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Category *</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:ring-1 focus:ring-amber-800 outline-none"
+        {loading ? (
+          <p className="text-xs text-stone-500">Loading products...</p>
+        ) : (
+          <div className="space-y-4">
+            {products.map((prod) => (
+              <div
+                key={prod.id}
+                className="flex items-center justify-between border-b pb-3 pt-2 gap-4"
               >
-                <option value="Kurtis">Kurtis</option>
-                <option value="Sarees">Sarees</option>
-                <option value="Suits">Suits</option>
-                <option value="Men">Men's Collection</option>
-              </select>
-            </div>
-          </div>
+                <div className="flex items-center gap-3">
+                  <img
+                    src={prod.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800'}
+                    alt={prod.name}
+                    className="w-14 h-14 object-cover rounded border"
+                    onError={(e) => {
+                      e.currentTarget.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800';
+                    }}
+                  />
+                  <div>
+                    <p className="font-bold text-stone-900 text-sm">{prod.name}</p>
+                    <p className="text-xs text-stone-500">₹{prod.price} | Category: {prod.category}</p>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded mt-1 inline-block ${
+                        prod.stock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}
+                    >
+                      {prod.stock > 0 ? 'In Stock' : 'Out of Stock'}
+                    </span>
+                  </div>
+                </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Upload Product Image *</label>
-            <div className="border-2 border-dashed border-stone-300 p-4 rounded-xl text-center hover:bg-stone-50 transition-colors">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileUpload}
-                className="hidden"
-                id="product-file-upload"
-              />
-              <label htmlFor="product-file-upload" className="cursor-pointer space-y-2 block">
-                <UploadCloud className="w-8 h-8 mx-auto text-amber-800" />
-                <span className="text-xs text-gray-600 block font-medium">
-                  {uploading ? 'Processing Image...' : 'Click to choose image file'}
-                </span>
-              </label>
-            </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleToggleStock(prod)}
+                    className={`px-3 py-1.5 rounded text-xs font-bold transition ${
+                      prod.stock > 0
+                        ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+                        : 'bg-green-100 text-green-900 hover:bg-green-200'
+                    }`}
+                  >
+                    {prod.stock > 0 ? 'Mark Out of Stock' : 'Mark In Stock'}
+                  </button>
 
-            {imageUrl && (
-              <div className="mt-2 flex items-center gap-2 text-xs text-green-700 font-semibold">
-                <CheckCircle2 className="w-4 h-4" /> Image Processed & Ready!
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Stock Quantity</label>
-            <input
-              type="number"
-              value={stock}
-              onChange={(e) => setStock(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-amber-800 outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Description</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Fabric details, embroidery style..."
-              rows={3}
-              className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-amber-800 outline-none"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={uploading}
-            className="w-full py-3 bg-[#6B1D2F] hover:bg-[#521624] text-[#F3E5AB] font-bold text-sm uppercase rounded-lg shadow transition-colors disabled:opacity-50"
-          >
-            {uploading ? 'Processing Image...' : 'Publish Product'}
-          </button>
-        </form>
-      </div>
-
-      {/* Products List with Delete */}
-      <div className="bg-white p-6 rounded-xl shadow-md">
-        <h2 className="text-lg font-bold mb-4 text-gray-900">All Products ({products.length})</h2>
-        <div className="space-y-3">
-          {products.map((prod) => (
-            <div key={prod.id} className="flex items-center justify-between border-b pb-3">
-              <div className="flex items-center gap-3">
-                <img
-                  src={prod.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800'}
-                  alt={prod.name}
-                  className="w-14 h-14 object-cover rounded"
-                  onError={(e) => {
-                    e.currentTarget.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800';
-                  }}
-                />
-                <div>
-                  <p className="font-bold text-sm text-gray-900">{prod.name}</p>
-                  <p className="text-xs text-stone-500">₹{prod.price} | {prod.category}</p>
+                  <button
+                    onClick={() => handleDelete(prod.id)}
+                    className="bg-red-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-red-700 transition"
+                  >
+                    Remove
+                  </button>
                 </div>
               </div>
-              <button
-                onClick={() => handleDelete(prod.id)}
-                className="bg-red-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-red-700 transition"
-              >
-                Delete
-              </button>
-            </div>
-          ))}
-          {products.length === 0 && (
-            <p className="text-sm text-stone-500 text-center py-6">Koi product nahi mila.</p>
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
