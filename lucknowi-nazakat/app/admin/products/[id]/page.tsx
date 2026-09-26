@@ -19,6 +19,7 @@ export default function AdminProductsPage() {
   const [stock, setStock] = useState('10');
   const [description, setDescription] = useState('');
 
+  // 1. Fetch Products List
   const fetchProducts = async () => {
     try {
       const res = await fetch('/api/products');
@@ -26,7 +27,7 @@ export default function AdminProductsPage() {
       if (Array.isArray(data)) setProducts(data);
       else if (data.products) setProducts(data.products);
     } catch (err) {
-      console.error(err);
+      console.error('Fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -36,6 +37,7 @@ export default function AdminProductsPage() {
     fetchProducts();
   }, []);
 
+  // 2. Add New Product Handler
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -72,18 +74,20 @@ export default function AdminProductsPage() {
     }
   };
 
-  // Safe Delete Handler (Handles both id and _id)
+  // 3. Safe Delete Handler (Tries ID first, then Name fallback)
   const handleDeleteProduct = async (product: any) => {
-    const targetId = product.id || product._id;
-    if (!targetId) {
-      alert('Error: Product ID not found.');
+    const targetIdentifier = product.id || product._id || product.name;
+    if (!targetIdentifier) {
+      alert('Error: Product identifier not found.');
       return;
     }
 
-    if (!confirm('Kya aap is product ko hamesha ke liye remove karna chahte hain?')) return;
+    if (!confirm(`Kya aap "${product.name}" ko hamesha ke liye remove karna chahte hain?`)) return;
 
     try {
-      const res = await fetch(`/api/products/${targetId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/products/${encodeURIComponent(targetIdentifier)}`, {
+        method: 'DELETE',
+      });
       const data = await res.json();
 
       if (data.success) {
@@ -97,18 +101,18 @@ export default function AdminProductsPage() {
     }
   };
 
-  // Safe Stock Toggle Handler (Handles both id and _id)
+  // 4. Safe Stock Toggle Handler (Tries ID first, then Name fallback)
   const handleToggleStock = async (product: any) => {
-    const targetId = product.id || product._id;
-    if (!targetId) {
-      alert('Error: Product ID not found.');
+    const targetIdentifier = product.id || product._id || product.name;
+    if (!targetIdentifier) {
+      alert('Error: Product identifier not found.');
       return;
     }
 
     const newStock = product.stock > 0 ? 0 : 10;
 
     try {
-      const res = await fetch(`/api/products/${targetId}`, {
+      const res = await fetch(`/api/products/${encodeURIComponent(targetIdentifier)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stock: newStock }),
@@ -132,13 +136,17 @@ export default function AdminProductsPage() {
       <main className="max-w-6xl mx-auto px-4 py-10 flex-1 w-full space-y-10">
         <h1 className="font-serif text-3xl font-bold text-[#6B1D2F]">Admin Product Management</h1>
 
-        {/* Section 1: Form */}
+        {/* Form Section: Add New Product */}
         <div className="bg-white p-6 md:p-8 rounded-lg border border-stone-200 shadow-sm">
-          <h2 className="font-serif text-xl font-bold text-stone-800 border-b pb-3 mb-6">Add New Lucknowi Collection</h2>
+          <h2 className="font-serif text-xl font-bold text-stone-800 border-b pb-3 mb-6">
+            Add New Lucknowi Collection
+          </h2>
 
           <form onSubmit={handleAddProduct} className="space-y-5">
             <div>
-              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">Product Name *</label>
+              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">
+                Product Name *
+              </label>
               <input
                 type="text"
                 required
@@ -151,7 +159,9 @@ export default function AdminProductsPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold uppercase text-stone-700 mb-1">Price (₹) *</label>
+                <label className="block text-xs font-bold uppercase text-stone-700 mb-1">
+                  Price (₹) *
+                </label>
                 <input
                   type="number"
                   required
@@ -162,7 +172,9 @@ export default function AdminProductsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-stone-700 mb-1">Category *</label>
+                <label className="block text-xs font-bold uppercase text-stone-700 mb-1">
+                  Category *
+                </label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
@@ -177,7 +189,9 @@ export default function AdminProductsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">Product Image URL *</label>
+              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">
+                Product Image URL *
+              </label>
               <input
                 type="text"
                 value={image}
@@ -188,7 +202,9 @@ export default function AdminProductsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">Stock Quantity</label>
+              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">
+                Stock Quantity
+              </label>
               <input
                 type="number"
                 value={stock}
@@ -198,7 +214,9 @@ export default function AdminProductsPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">Description</label>
+              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">
+                Description
+              </label>
               <textarea
                 rows={3}
                 value={description}
@@ -218,7 +236,7 @@ export default function AdminProductsPage() {
           </form>
         </div>
 
-        {/* Section 2: Manage Existing Products List */}
+        {/* Existing Products List Section */}
         <div className="bg-white p-6 md:p-8 rounded-lg border border-stone-200 shadow-sm">
           <h2 className="font-serif text-xl font-bold text-stone-800 border-b pb-3 mb-6">
             All Added Products ({products.length})
@@ -231,14 +249,18 @@ export default function AdminProductsPage() {
           ) : (
             <div className="divide-y divide-stone-200">
               {products.map((prod, index) => (
-                <div key={prod.id || prod._id || index} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div
+                  key={prod.id || prod._id || index}
+                  className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4"
+                >
                   <div className="flex items-center space-x-4">
                     <img
                       src={prod.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800'}
                       alt={prod.name}
                       className="w-16 h-16 object-cover rounded border border-stone-200"
                       onError={(e) => {
-                        e.currentTarget.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800';
+                        e.currentTarget.src =
+                          'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800';
                       }}
                     />
                     <div>
