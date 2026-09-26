@@ -12,7 +12,7 @@ export default function Navbar() {
     setMounted(true);
   }, []);
 
-  const totalCartCount = items.reduce((total, item) => total + item.quantity, 0);
+ const totalCartCount = items.reduce((total: number, item: any) => total + item.quantity, 0);
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-stone-200 shadow-sm">
