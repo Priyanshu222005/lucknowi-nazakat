@@ -1,11 +1,14 @@
 'use client';
 
+'use client';
+
+export const dynamic = 'force-dynamic';
+
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useCart } from '@/context/CartContext';
-
 declare global {
   interface Window {
     Razorpay: any;
