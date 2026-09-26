@@ -15,7 +15,7 @@ export default function Navbar() {
           <span className="font-serif text-lg sm:text-2xl font-bold tracking-wide">
             LUCKNOWI NAZAKAT
           </span>
-          <span className="text-[9px] sm:text-xs tracking-widest text-stone-300 uppercase">
+          <span className="text-[10px] sm:text-xs tracking-widest text-stone-300 uppercase">
             Authentic Chikankari
           </span>
         </Link>
@@ -31,15 +31,14 @@ export default function Navbar() {
         <div className="flex items-center space-x-3">
           <Link
             href="/cart"
-            className="bg-white text-[#6B1D2F] px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold uppercase flex items-center gap-1 shadow"
+            className="bg-white text-[#6B1D2F] px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold uppercase flex items-center gap-1 shadow"
           >
             Cart <span className="bg-[#6B1D2F] text-white rounded-full px-1.5 py-0.2 text-[10px]">{cart.length}</span>
           </Link>
         </div>
       </div>
 
-      {/* Mobile Submenu Bar */}
-      <div className="md:hidden bg-[#521624] px-4 py-2 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider overflow-x-auto whitespace-nowrap space-x-4 border-t border-[#7d2238]">
+      <div className="md:hidden bg-[#521624] px-4 py-2 flex items-center justify-between text-xs font-bold uppercase tracking-wider overflow-x-auto whitespace-nowrap space-x-4 border-t border-[#7d2238]">
         <Link href="/" className="hover:text-amber-200">Home</Link>
         <Link href="/shop" className="hover:text-amber-200">Shop All</Link>
         <Link href="/shop?category=Kurtis" className="hover:text-amber-200">Women</Link>
