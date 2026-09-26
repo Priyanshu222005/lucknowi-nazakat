@@ -6,8 +6,19 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
+interface Product {
+  id?: string;
+  _id?: string;
+  name: string;
+  price: number;
+  category: string;
+  image?: string;
+  stock: number;
+  description?: string;
+}
+
 export default function AdminProductsPage() {
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -74,58 +85,65 @@ export default function AdminProductsPage() {
     }
   };
 
-  // 3. Safe Delete Handler (Tries ID first, then Name fallback)
-  const handleDeleteProduct = async (product: any) => {
-    const targetIdentifier = product.id || product._id || product.name;
-    if (!targetIdentifier) {
-      alert('Error: Product identifier not found.');
+  // 3. Delete Handler — uses id/_id as primary identifier, falls back to name
+  const handleDeleteProduct = async (product: Product) => {
+    const identifier = product.id || product._id || product.name;
+
+    if (!identifier) {
+      alert('Error: Could not determine which product to delete.');
       return;
     }
 
-    if (!confirm(`Kya aap "${product.name}" ko hamesha ke liye remove karna chahte hain?`)) return;
+    const confirmed = confirm(`Kya aap "${product.name}" ko hamesha ke liye remove karna chahte hain?`);
+    if (!confirmed) return;
 
     try {
-      const res = await fetch(`/api/products/${encodeURIComponent(targetIdentifier)}`, {
+      const res = await fetch(`/api/products/${encodeURIComponent(identifier)}`, {
         method: 'DELETE',
       });
       const data = await res.json();
 
-      if (data.success) {
-        alert('✅ Product successfully remove ho gaya!');
-        fetchProducts();
-      } else {
-        alert('Delete fail: ' + (data.error || 'Failed to remove'));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to delete product.');
       }
+
+      alert('✅ Product successfully remove ho gaya!');
+      await fetchProducts();
     } catch (err) {
-      alert('Delete request processing error.');
+      const message = err instanceof Error ? err.message : 'Unknown error occurred.';
+      console.error('Delete request failed:', message);
+      alert(`Delete fail: ${message}`);
     }
   };
 
-  // 4. Safe Stock Toggle Handler (Tries ID first, then Name fallback)
-  const handleToggleStock = async (product: any) => {
-    const targetIdentifier = product.id || product._id || product.name;
-    if (!targetIdentifier) {
-      alert('Error: Product identifier not found.');
+  // 4. Stock Toggle Handler — uses id/_id as primary identifier, falls back to name
+  const handleToggleStock = async (product: Product) => {
+    const identifier = product.id || product._id || product.name;
+
+    if (!identifier) {
+      alert('Error: Could not determine which product to update.');
       return;
     }
 
     const newStock = product.stock > 0 ? 0 : 10;
 
     try {
-      const res = await fetch(`/api/products/${encodeURIComponent(targetIdentifier)}`, {
+      const res = await fetch(`/api/products/${encodeURIComponent(identifier)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stock: newStock }),
       });
       const data = await res.json();
 
-      if (data.success) {
-        fetchProducts();
-      } else {
-        alert('Stock update fail: ' + data.error);
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to update stock.');
       }
+
+      await fetchProducts();
     } catch (err) {
-      alert('Stock request processing error.');
+      const message = err instanceof Error ? err.message : 'Unknown error occurred.';
+      console.error('Stock update failed:', message);
+      alert(`Stock update fail: ${message}`);
     }
   };
 
