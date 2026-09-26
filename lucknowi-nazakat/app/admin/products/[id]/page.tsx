@@ -1,11 +1,23 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
+  // Form State
+  const [name, setName] = useState('');
+  const [price, setPrice] = useState('2499');
+  const [category, setCategory] = useState('Kurtis');
+  const [image, setImage] = useState('');
+  const [stock, setStock] = useState('10');
+  const [description, setDescription] = useState('');
+
+  // 1. Fetch All Products
   const fetchProducts = async () => {
     try {
       const res = await fetch('/api/products');
@@ -13,7 +25,7 @@ export default function AdminProductsPage() {
       if (Array.isArray(data)) setProducts(data);
       else if (data.products) setProducts(data.products);
     } catch (err) {
-      console.error(err);
+      console.error('Fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -23,34 +35,71 @@ export default function AdminProductsPage() {
     fetchProducts();
   }, []);
 
-  // Delete Product Handler
-  const handleDelete = async (id: string) => {
-    if (!confirm('Kya aap is product ko permanent remove karna chahte hain?')) return;
+  // 2. Add New Product Handler
+  const handleAddProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          price,
+          category,
+          image: image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800',
+          stock,
+          description,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        alert('🎉 Product successfully publish ho gaya!');
+        setName('');
+        setImage('');
+        setDescription('');
+        fetchProducts();
+      } else {
+        alert('Product upload error: ' + (data.error || 'Server Error'));
+      }
+    } catch (err) {
+      alert('Upload request fail ho gaya.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // 3. Delete / Remove Product Handler
+  const handleDeleteProduct = async (id: string) => {
+    if (!confirm('Kya aap is product ko hamesha ke liye remove karna chahte hain?')) return;
 
     try {
       const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
       const data = await res.json();
 
       if (data.success) {
-        alert('✅ Product successfully removed!');
+        alert('✅ Product successfully remove ho gaya!');
         fetchProducts();
       } else {
-        alert('Delete error: ' + (data.error || 'Failed to remove'));
+        alert('Delete fail: ' + (data.error || 'Failed to remove'));
       }
     } catch (err) {
-      alert('Delete request fail ho gaya.');
+      alert('Delete request processing error.');
     }
   };
 
-  // Stock Toggle Handler (In Stock / Out of Stock)
+  // 4. Toggle Stock Status (In Stock / Out of Stock)
   const handleToggleStock = async (product: any) => {
-    const newStockStatus = product.stock > 0 ? 0 : 10; // 0 = Out of Stock, 10 = In Stock
+    const newStock = product.stock > 0 ? 0 : 10;
 
     try {
       const res = await fetch(`/api/products/${product.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stock: newStockStatus }),
+        body: JSON.stringify({ stock: newStock }),
       });
       const data = await res.json();
 
@@ -60,72 +109,170 @@ export default function AdminProductsPage() {
         alert('Stock update fail: ' + data.error);
       }
     } catch (err) {
-      alert('Update request fail ho gaya.');
+      alert('Stock request processing error.');
     }
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 bg-[#FAF9F6] min-h-screen">
-      <h1 className="font-serif text-3xl font-bold text-[#6B1D2F] mb-6">Admin Panel - Manage Products</h1>
+    <div className="min-h-screen flex flex-col bg-[#FAF9F6]">
+      <Navbar />
 
-      <div className="bg-white p-6 rounded-lg border border-stone-200 shadow-sm">
-        <h2 className="text-lg font-bold text-stone-800 mb-4">All Products ({products.length})</h2>
+      <main className="max-w-6xl mx-auto px-4 py-10 flex-1 w-full space-y-10">
+        <h1 className="font-serif text-3xl font-bold text-[#6B1D2F]">Admin Product Management</h1>
 
-        {loading ? (
-          <p className="text-xs text-stone-500">Loading products...</p>
-        ) : (
-          <div className="space-y-4">
-            {products.map((prod) => (
-              <div
-                key={prod.id}
-                className="flex items-center justify-between border-b pb-3 pt-2 gap-4"
-              >
-                <div className="flex items-center gap-3">
-                  <img
-                    src={prod.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800'}
-                    alt={prod.name}
-                    className="w-14 h-14 object-cover rounded border"
-                    onError={(e) => {
-                      e.currentTarget.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800';
-                    }}
-                  />
-                  <div>
-                    <p className="font-bold text-stone-900 text-sm">{prod.name}</p>
-                    <p className="text-xs text-stone-500">₹{prod.price} | Category: {prod.category}</p>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded mt-1 inline-block ${
-                        prod.stock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+        {/* Section 1: Add New Product Form */}
+        <div className="bg-white p-6 md:p-8 rounded-lg border border-stone-200 shadow-sm">
+          <h2 className="font-serif text-xl font-bold text-stone-800 border-b pb-3 mb-6">Add New Lucknowi Collection</h2>
+
+          <form onSubmit={handleAddProduct} className="space-y-5">
+            <div>
+              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">Product Name *</label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Handcrafted White Chikankari Kurti"
+                className="w-full border border-stone-300 rounded p-2.5 text-xs focus:outline-none focus:border-[#6B1D2F]"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-stone-700 mb-1">Price (₹) *</label>
+                <input
+                  type="number"
+                  required
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  className="w-full border border-stone-300 rounded p-2.5 text-xs focus:outline-none focus:border-[#6B1D2F]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-stone-700 mb-1">Category *</label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full border border-stone-300 rounded p-2.5 text-xs focus:outline-none focus:border-[#6B1D2F]"
+                >
+                  <option value="Kurtis">Kurtis</option>
+                  <option value="Sarees">Sarees</option>
+                  <option value="Dupattas">Dupattas</option>
+                  <option value="Lehenga">Lehenga</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">Product Image URL *</label>
+              <input
+                type="text"
+                value={image}
+                onChange={(e) => setImage(e.target.value)}
+                placeholder="https://example.com/image.jpg"
+                className="w-full border border-stone-300 rounded p-2.5 text-xs focus:outline-none focus:border-[#6B1D2F]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">Stock Quantity</label>
+              <input
+                type="number"
+                value={stock}
+                onChange={(e) => setStock(e.target.value)}
+                className="w-full border border-stone-300 rounded p-2.5 text-xs focus:outline-none focus:border-[#6B1D2F]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">Description</label>
+              <textarea
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Fabric details, embroidery style..."
+                className="w-full border border-stone-300 rounded p-2.5 text-xs focus:outline-none focus:border-[#6B1D2F]"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full bg-[#6B1D2F] text-white py-3.5 rounded text-xs font-bold uppercase tracking-wider hover:bg-[#521624] transition disabled:opacity-50 cursor-pointer shadow"
+            >
+              {submitting ? 'Publishing...' : 'Publish Product'}
+            </button>
+          </form>
+        </div>
+
+        {/* Section 2: Manage Existing Products (Remove / Out of Stock) */}
+        <div className="bg-white p-6 md:p-8 rounded-lg border border-stone-200 shadow-sm">
+          <h2 className="font-serif text-xl font-bold text-stone-800 border-b pb-3 mb-6">
+            All Added Products ({products.length})
+          </h2>
+
+          {loading ? (
+            <p className="text-xs text-stone-500 py-4">Loading products list...</p>
+          ) : products.length === 0 ? (
+            <p className="text-xs text-stone-500 py-4">Abhi koi products add nahi hain.</p>
+          ) : (
+            <div className="divide-y divide-stone-200">
+              {products.map((prod) => (
+                <div key={prod.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-center space-x-4">
+                    <img
+                      src={prod.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800'}
+                      alt={prod.name}
+                      className="w-16 h-16 object-cover rounded border border-stone-200"
+                      onError={(e) => {
+                        e.currentTarget.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800';
+                      }}
+                    />
+                    <div>
+                      <h3 className="font-bold text-stone-900 text-sm">{prod.name}</h3>
+                      <p className="text-xs text-stone-500">
+                        ₹{prod.price} | Category: <span className="font-semibold">{prod.category}</span>
+                      </p>
+                      <span
+                        className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded mt-1 ${
+                          prod.stock > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                        }`}
+                      >
+                        {prod.stock > 0 ? 'In Stock' : 'Out of Stock'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleStock(prod)}
+                      className={`px-3 py-2 rounded text-xs font-bold transition cursor-pointer ${
+                        prod.stock > 0
+                          ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+                          : 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200'
                       }`}
                     >
-                      {prod.stock > 0 ? 'In Stock' : 'Out of Stock'}
-                    </span>
+                      {prod.stock > 0 ? 'Mark Out of Stock' : 'Mark In Stock'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteProduct(prod.id)}
+                      className="bg-rose-600 text-white px-4 py-2 rounded text-xs font-bold uppercase tracking-wider hover:bg-rose-700 transition cursor-pointer shadow"
+                    >
+                      Remove
+                    </button>
                   </div>
                 </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleToggleStock(prod)}
-                    className={`px-3 py-1.5 rounded text-xs font-bold transition ${
-                      prod.stock > 0
-                        ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
-                        : 'bg-green-100 text-green-900 hover:bg-green-200'
-                    }`}
-                  >
-                    {prod.stock > 0 ? 'Mark Out of Stock' : 'Mark In Stock'}
-                  </button>
-
-                  <button
-                    onClick={() => handleDelete(prod.id)}
-                    className="bg-red-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-red-700 transition"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <Footer />
     </div>
   );
 }
