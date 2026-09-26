@@ -4,72 +4,59 @@ import React from 'react';
 import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
 
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  category: string;
-  image: string;
-}
+export default function ProductCard({ product }: { product: any }) {
+  const cartContext = useCart();
+  const addToCart = cartContext?.addToCart;
 
-export default function ProductCard({ product }: { product: Product }) {
-  const { addToCart } = useCart();
-
-  // Fallback high quality Chikankari image URL
-  const defaultImage = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800';
-
-  // Helper to validate image URL
-  const getImageSrc = () => {
-    if (!product.image || product.image.trim() === '') return defaultImage;
-    return product.image;
-  };
+  const productId = product.id || product._id || product.slug;
 
   return (
-    <div className="bg-white border border-stone-200 rounded-lg overflow-hidden shadow-sm flex flex-col justify-between hover:shadow-md transition">
+    <div className="bg-white rounded-lg border border-stone-200 overflow-hidden shadow-sm flex flex-col justify-between hover:shadow-md transition">
       <div>
-        <div className="relative w-full h-64 bg-stone-100 overflow-hidden">
+        <div className="relative w-full h-64 sm:h-72 bg-stone-100 overflow-hidden">
           <img
-            src={getImageSrc()}
+            src={product.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800'}
             alt={product.name}
             className="w-full h-full object-cover hover:scale-105 transition duration-300"
             onError={(e) => {
-              const target = e.currentTarget;
-              if (target.src !== defaultImage) {
-                target.src = defaultImage;
-              }
+              e.currentTarget.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800';
             }}
           />
         </div>
 
-        <div className="p-4">
-          <span className="text-[10px] font-bold uppercase bg-[#6B1D2F] text-white px-2 py-0.5 rounded">
-            {product.category}
+        <div className="p-4 space-y-2">
+          <span className="text-[11px] font-bold tracking-wider uppercase bg-[#6B1D2F] text-white px-2.5 py-1 rounded">
+            {product.category || 'Kurtis'}
           </span>
-          <h3 className="font-serif font-bold text-stone-800 mt-2 text-base line-clamp-1">
+
+          <h3 className="font-serif text-base sm:text-lg font-bold text-stone-900 line-clamp-1 pt-1">
             {product.name}
           </h3>
-          <p className="text-stone-500 text-xs mt-1 line-clamp-2">
-            {product.description}
+
+          <p className="text-xs sm:text-sm text-stone-500 line-clamp-2">
+            {product.description || 'Authentic Chikankari Collection'}
           </p>
-          <p className="text-[#6B1D2F] font-bold text-lg mt-2">
+
+          <p className="text-base sm:text-lg font-bold text-[#6B1D2F]">
             ₹{product.price}
           </p>
         </div>
       </div>
 
-      <div className="p-4 pt-0 grid grid-cols-2 gap-2 mt-2">
+      <div className="p-4 pt-0 grid grid-cols-2 gap-2">
         <Link
-          href={`/product/${product.id}`}
-          className="text-center border border-stone-300 text-stone-700 py-2 rounded text-xs font-bold uppercase hover:bg-stone-50 transition"
+          href={`/products/${productId}`}
+          className="w-full text-center border border-[#6B1D2F] text-[#6B1D2F] py-2.5 rounded text-xs sm:text-sm font-bold uppercase hover:bg-stone-50 transition"
         >
           View Details
         </Link>
+
         <button
-          onClick={() => addToCart({ ...product, quantity: 1, size: 'M' })}
-          className="bg-[#6B1D2F] text-white py-2 rounded text-xs font-bold uppercase hover:bg-[#521624] transition cursor-pointer"
+          type="button"
+          onClick={() => addToCart && addToCart(product)}
+          className="w-full bg-[#6B1D2F] text-white py-2.5 rounded text-xs sm:text-sm font-bold uppercase hover:bg-[#521624] transition"
         >
-          + Add to Cart
+          + Add To Cart
         </button>
       </div>
     </div>
