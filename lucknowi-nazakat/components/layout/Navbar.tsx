@@ -2,17 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useCartStore } from '@/store/useCartStore';
+import { useCart } from '@/context/CartContext';
 
 export default function Navbar() {
-  const { items, toggleCart } = useCartStore();
+  const cartContext = useCart();
+  const cart = cartContext?.cart || [];
+  const setIsOpen = cartContext?.setIsOpen;
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
- const totalCartCount = items.reduce((total: number, item: any) => total + item.quantity, 0);
+  const totalCartCount = cart.reduce((total: number, item) => total + (item.quantity || 1), 0);
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-stone-200 shadow-sm">
@@ -51,7 +53,7 @@ export default function Navbar() {
         {/* Shopping Cart Icon */}
         <div className="flex items-center space-x-4">
           <button
-            onClick={toggleCart}
+            onClick={() => setIsOpen && setIsOpen(true)}
             suppressHydrationWarning
             className="relative p-2 text-stone-700 hover:text-[#6B1D2F] transition"
             aria-label="Shopping Cart"

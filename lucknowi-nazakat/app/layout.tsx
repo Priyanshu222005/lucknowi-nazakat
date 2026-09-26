@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Playfair_Display, Inter } from 'next/font/google';
 import { CartProvider } from '@/context/CartContext';
+import CartDrawer from '@/components/cart/CartDrawer';
 import './globals.css';
 
 const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' });
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="font-sans antialiased text-stone-800 bg-[#FAF9F6]" suppressHydrationWarning>
         <CartProvider>
           {children}
+          <CartDrawer />
         </CartProvider>
       </body>
     </html>
