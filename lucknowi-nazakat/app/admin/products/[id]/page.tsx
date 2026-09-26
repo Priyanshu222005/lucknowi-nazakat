@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -9,7 +11,7 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // Form State
+  // Form States
   const [name, setName] = useState('');
   const [price, setPrice] = useState('2499');
   const [category, setCategory] = useState('Kurtis');
@@ -17,7 +19,6 @@ export default function AdminProductsPage() {
   const [stock, setStock] = useState('10');
   const [description, setDescription] = useState('');
 
-  // 1. Fetch All Products
   const fetchProducts = async () => {
     try {
       const res = await fetch('/api/products');
@@ -25,7 +26,7 @@ export default function AdminProductsPage() {
       if (Array.isArray(data)) setProducts(data);
       else if (data.products) setProducts(data.products);
     } catch (err) {
-      console.error('Fetch error:', err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -35,7 +36,6 @@ export default function AdminProductsPage() {
     fetchProducts();
   }, []);
 
-  // 2. Add New Product Handler
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -72,12 +72,18 @@ export default function AdminProductsPage() {
     }
   };
 
-  // 3. Delete / Remove Product Handler
-  const handleDeleteProduct = async (id: string) => {
+  // Safe Delete Handler (Handles both id and _id)
+  const handleDeleteProduct = async (product: any) => {
+    const targetId = product.id || product._id;
+    if (!targetId) {
+      alert('Error: Product ID not found.');
+      return;
+    }
+
     if (!confirm('Kya aap is product ko hamesha ke liye remove karna chahte hain?')) return;
 
     try {
-      const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/products/${targetId}`, { method: 'DELETE' });
       const data = await res.json();
 
       if (data.success) {
@@ -91,12 +97,18 @@ export default function AdminProductsPage() {
     }
   };
 
-  // 4. Toggle Stock Status (In Stock / Out of Stock)
+  // Safe Stock Toggle Handler (Handles both id and _id)
   const handleToggleStock = async (product: any) => {
+    const targetId = product.id || product._id;
+    if (!targetId) {
+      alert('Error: Product ID not found.');
+      return;
+    }
+
     const newStock = product.stock > 0 ? 0 : 10;
 
     try {
-      const res = await fetch(`/api/products/${product.id}`, {
+      const res = await fetch(`/api/products/${targetId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stock: newStock }),
@@ -120,7 +132,7 @@ export default function AdminProductsPage() {
       <main className="max-w-6xl mx-auto px-4 py-10 flex-1 w-full space-y-10">
         <h1 className="font-serif text-3xl font-bold text-[#6B1D2F]">Admin Product Management</h1>
 
-        {/* Section 1: Add New Product Form */}
+        {/* Section 1: Form */}
         <div className="bg-white p-6 md:p-8 rounded-lg border border-stone-200 shadow-sm">
           <h2 className="font-serif text-xl font-bold text-stone-800 border-b pb-3 mb-6">Add New Lucknowi Collection</h2>
 
@@ -206,7 +218,7 @@ export default function AdminProductsPage() {
           </form>
         </div>
 
-        {/* Section 2: Manage Existing Products (Remove / Out of Stock) */}
+        {/* Section 2: Manage Existing Products List */}
         <div className="bg-white p-6 md:p-8 rounded-lg border border-stone-200 shadow-sm">
           <h2 className="font-serif text-xl font-bold text-stone-800 border-b pb-3 mb-6">
             All Added Products ({products.length})
@@ -218,8 +230,8 @@ export default function AdminProductsPage() {
             <p className="text-xs text-stone-500 py-4">Abhi koi products add nahi hain.</p>
           ) : (
             <div className="divide-y divide-stone-200">
-              {products.map((prod) => (
-                <div key={prod.id} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              {products.map((prod, index) => (
+                <div key={prod.id || prod._id || index} className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex items-center space-x-4">
                     <img
                       src={prod.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800'}
@@ -259,7 +271,7 @@ export default function AdminProductsPage() {
 
                     <button
                       type="button"
-                      onClick={() => handleDeleteProduct(prod.id)}
+                      onClick={() => handleDeleteProduct(prod)}
                       className="bg-rose-600 text-white px-4 py-2 rounded text-xs font-bold uppercase tracking-wider hover:bg-rose-700 transition cursor-pointer shadow"
                     >
                       Remove
