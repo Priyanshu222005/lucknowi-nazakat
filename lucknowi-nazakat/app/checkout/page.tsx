@@ -12,7 +12,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const cartContext = useCart();
   const cart = cartContext?.cart || [];
-  const getCartTotal = cartContext?.getCartTotal;
+  const totalAmount = cartContext?.totalAmount || 0;
   const clearCart = cartContext?.clearCart;
 
   const [mounted, setMounted] = useState(false);
@@ -43,8 +43,6 @@ export default function CheckoutPage() {
       </div>
     );
   }
-
-  const totalAmount = getCartTotal ? getCartTotal() : 0;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
