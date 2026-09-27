@@ -2,122 +2,311 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, use } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { useCart } from '@/context/CartContext';
 
-export default function SingleProductPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = use(params);
-  const productId = resolvedParams?.id;
-
-  const [product, setProduct] = useState<any>(null);
+export default function AdminProductsPage() {
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedSize, setSelectedSize] = useState('M');
+  const [submitting, setSubmitting] = useState(false);
 
-  const cartContext = useCart();
-  const addToCart = cartContext?.addToCart;
+  const [name, setName] = useState('');
+  const [price, setPrice] = useState('2499');
+  const [category, setCategory] = useState('Kurtis');
+  const [image, setImage] = useState('');
+  const [stock, setStock] = useState('10');
+  const [description, setDescription] = useState('');
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/products');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setProducts(data);
+      } else if (data && data.products && Array.isArray(data.products)) {
+        setProducts(data.products);
+      } else {
+        setProducts([]);
+      }
+    } catch (err) {
+      console.error('Fetch error:', err);
+      setProducts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchProduct = async () => {
-      try {
-        const res = await fetch('/api/products');
-        const data = await res.json();
-        const list = Array.isArray(data) ? data : data.products || [];
+    fetchProducts();
+  }, []);
 
-        const found = list.find((p: any) =>
-          String(p.id) === String(productId) ||
-          String(p._id) === String(productId) ||
-          String(p.name) === decodeURIComponent(String(productId))
-        );
+  const handleAddProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
 
-        setProduct(found || null);
-      } catch (err) {
-        console.error('Fetch product detail error:', err);
-      } finally {
-        setLoading(false);
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          price,
+          category,
+          image: image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800',
+          stock,
+          description,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        alert('Product successfully publish ho gaya!');
+        setName('');
+        setImage('');
+        setDescription('');
+        fetchProducts();
+      } else {
+        alert('Product upload error: ' + (data.error || 'Server Error'));
       }
-    };
+    } catch (err) {
+      alert('Upload request fail ho gaya.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-    if (productId) fetchProduct();
-  }, [productId]);
+  const handleDeleteProduct = async (product: any) => {
+    const targetIdentifier = product.id || product._id || product.name;
+    if (!targetIdentifier) return;
+
+    if (!confirm(`Kya aap "${product.name}" ko remove karna chahte hain?`)) return;
+
+    try {
+      const res = await fetch(`/api/products/${encodeURIComponent(targetIdentifier)}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        alert('Product remove ho gaya!');
+        fetchProducts();
+      } else {
+        alert('Delete fail: ' + (data.error || 'Failed to remove'));
+      }
+    } catch (err) {
+      alert('Delete request error.');
+    }
+  };
+
+  const handleToggleStock = async (product: any) => {
+    const targetIdentifier = product.id || product._id || product.name;
+    if (!targetIdentifier) return;
+
+    const newStock = product.stock > 0 ? 0 : 10;
+
+    try {
+      const res = await fetch(`/api/products/${encodeURIComponent(targetIdentifier)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stock: newStock }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        fetchProducts();
+      } else {
+        alert('Stock update fail: ' + data.error);
+      }
+    } catch (err) {
+      alert('Stock request error.');
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF9F6]">
       <Navbar />
 
-      <main className="max-w-6xl mx-auto px-4 py-10 flex-1 w-full">
-        {loading ? (
-          <div className="text-center py-20 text-xs font-semibold text-stone-500">
-            Loading Product Details...
-          </div>
-        ) : !product ? (
-          <div className="text-center py-20 space-y-4">
-            <h2 className="text-xl font-bold text-stone-800">Product Not Found</h2>
-            <p className="text-xs text-stone-500">Ye product details available nahi hain.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 bg-white p-6 md:p-10 rounded-lg border border-stone-200 shadow-sm">
-            <div className="w-full h-80 md:h-[450px] bg-stone-100 rounded overflow-hidden">
-              <img
-                src={product.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800'}
-                alt={product.name}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800';
-                }}
+      <main className="max-w-6xl mx-auto px-4 py-10 flex-1 w-full space-y-10">
+        <h1 className="font-serif text-3xl font-bold text-[#6B1D2F]">Admin Product Management</h1>
+
+        <div className="bg-white p-6 md:p-8 rounded-lg border border-stone-200 shadow-sm">
+          <h2 className="font-serif text-xl font-bold text-stone-800 border-b pb-3 mb-6">
+            Add New Lucknowi Collection
+          </h2>
+
+          <form onSubmit={handleAddProduct} className="space-y-5">
+            <div>
+              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">
+                Product Name *
+              </label>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Handcrafted White Chikankari Kurti"
+                className="w-full border border-stone-300 rounded p-2.5 text-xs focus:outline-none focus:border-[#6B1D2F]"
               />
             </div>
 
-            <div className="flex flex-col justify-between space-y-6">
-              <div className="space-y-3">
-                <span className="text-xs font-bold tracking-wider uppercase bg-[#6B1D2F] text-white px-3 py-1 rounded inline-block">
-                  {product.category || 'Kurtis'}
-                </span>
-
-                <h1 className="font-serif text-2xl md:text-3xl font-bold text-stone-900">
-                  {product.name}
-                </h1>
-
-                <p className="text-2xl font-bold text-[#6B1D2F]">
-                  ₹{product.price}
-                </p>
-
-                <p className="text-xs md:text-sm text-stone-600 leading-relaxed pt-2">
-                  {product.description || 'Authentic Chikankari Collection. Handcrafted embroidery work.'}
-                </p>
-
-                <div className="pt-4">
-                  <label className="block text-xs font-bold uppercase text-stone-700 mb-2">Select Size</label>
-                  <div className="flex gap-3">
-                    {['S', 'M', 'L', 'XL', 'XXL'].map((size) => (
-                      <button
-                        key={size}
-                        type="button"
-                        onClick={() => setSelectedSize(size)}
-                        className={`w-10 h-10 rounded text-xs font-bold border transition ${
-                          selectedSize === size
-                            ? 'border-[#6B1D2F] bg-[#6B1D2F] text-white'
-                            : 'border-stone-300 text-stone-800 hover:border-stone-400'
-                        }`}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-stone-700 mb-1">
+                  Price (₹) *
+                </label>
+                <input
+                  type="number"
+                  required
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  className="w-full border border-stone-300 rounded p-2.5 text-xs focus:outline-none focus:border-[#6B1D2F]"
+                />
               </div>
 
-              <button
-                type="button"
-                onClick={() => addToCart && addToCart({ ...product, size: selectedSize })}
-                className="w-full bg-[#6B1D2F] text-white py-4 rounded text-xs md:text-sm font-bold uppercase tracking-wider hover:bg-[#521624] transition shadow cursor-pointer"
-              >
-                + Add To Cart
-              </button>
+              <div>
+                <label className="block text-xs font-bold uppercase text-stone-700 mb-1">
+                  Category *
+                </label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full border border-stone-300 rounded p-2.5 text-xs focus:outline-none focus:border-[#6B1D2F]"
+                >
+                  <option value="Kurtis">Kurtis</option>
+                  <option value="Sarees">Sarees</option>
+                  <option value="Dupattas">Dupattas</option>
+                  <option value="Lehenga">Lehenga</option>
+                </select>
+              </div>
             </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">
+                Product Image URL *
+              </label>
+              <input
+                type="text"
+                value={image}
+                onChange={(e) => setImage(e.target.value)}
+                placeholder="https://example.com/image.jpg"
+                className="w-full border border-stone-300 rounded p-2.5 text-xs focus:outline-none focus:border-[#6B1D2F]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">
+                Stock Quantity
+              </label>
+              <input
+                type="number"
+                value={stock}
+                onChange={(e) => setStock(e.target.value)}
+                className="w-full border border-stone-300 rounded p-2.5 text-xs focus:outline-none focus:border-[#6B1D2F]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-stone-700 mb-1">
+                Description
+              </label>
+              <textarea
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Fabric details, embroidery style..."
+                className="w-full border border-stone-300 rounded p-2.5 text-xs focus:outline-none focus:border-[#6B1D2F]"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full bg-[#6B1D2F] text-white py-3.5 rounded text-xs font-bold uppercase tracking-wider hover:bg-[#521624] transition disabled:opacity-50 cursor-pointer shadow"
+            >
+              {submitting ? 'Publishing...' : 'Publish Product'}
+            </button>
+          </form>
+        </div>
+
+        <div className="bg-white p-6 md:p-8 rounded-lg border border-stone-200 shadow-sm">
+          <div className="flex justify-between items-center border-b pb-3 mb-6">
+            <h2 className="font-serif text-xl font-bold text-stone-800">
+              All Added Products ({products.length})
+            </h2>
+            <button
+              type="button"
+              onClick={fetchProducts}
+              className="text-xs bg-stone-100 text-stone-700 px-3 py-1.5 rounded font-bold hover:bg-stone-200"
+            >
+              🔄 Refresh List
+            </button>
           </div>
-        )}
+
+          {loading ? (
+            <p className="text-xs text-stone-500 py-4">Loading products list...</p>
+          ) : products.length === 0 ? (
+            <p className="text-xs text-stone-500 py-4">Abhi koi products database mein nahi hain.</p>
+          ) : (
+            <div className="divide-y divide-stone-200">
+              {products.map((prod, index) => (
+                <div
+                  key={prod.id || prod._id || index}
+                  className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4"
+                >
+                  <div className="flex items-center space-x-4">
+                    <img
+                      src={prod.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800'}
+                      alt={prod.name}
+                      className="w-16 h-16 object-cover rounded border border-stone-200"
+                      onError={(e) => {
+                        e.currentTarget.src =
+                          'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800';
+                      }}
+                    />
+                    <div>
+                      <h3 className="font-bold text-stone-900 text-sm">{prod.name}</h3>
+                      <p className="text-xs text-stone-500">
+                        ₹{prod.price} | Category: <span className="font-semibold">{prod.category}</span>
+                      </p>
+                      <span
+                        className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded mt-1 ${
+                          prod.stock > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                        }`}
+                      >
+                        {prod.stock > 0 ? 'In Stock' : 'Out of Stock'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleStock(prod)}
+                      className={`px-3 py-2 rounded text-xs font-bold transition cursor-pointer ${
+                        prod.stock > 0
+                          ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+                          : 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200'
+                      }`}
+                    >
+                      {prod.stock > 0 ? 'Mark Out of Stock' : 'Mark In Stock'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteProduct(prod)}
+                      className="bg-rose-600 text-white px-4 py-2 rounded text-xs font-bold uppercase tracking-wider hover:bg-rose-700 transition cursor-pointer shadow"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </main>
 
       <Footer />
