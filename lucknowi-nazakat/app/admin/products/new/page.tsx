@@ -14,32 +14,34 @@ export default function NewProductPage() {
   const [description, setDescription] = useState('');
   const [uploading, setUploading] = useState(false);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Ab full quality image seedha Vercel Blob mein upload hogi
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 400;
-        const scaleFactor = MAX_WIDTH / img.width;
 
-        canvas.width = img.width > MAX_WIDTH ? MAX_WIDTH : img.width;
-        canvas.height = img.width > MAX_WIDTH ? img.height * scaleFactor : img.height;
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
 
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
 
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.4);
-        setImageUrl(compressedBase64);
-        setUploading(false);
-      };
-    };
+      const data = await res.json();
+
+      if (res.ok && data.url) {
+        setImageUrl(data.url);
+      } else {
+        alert(data.error || 'Image upload fail ho gaya.');
+      }
+    } catch (err) {
+      alert('Image upload karte waqt error aaya.');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -57,7 +59,7 @@ export default function NewProductPage() {
           name,
           price: parseFloat(price),
           category,
-          images: [imageUrl],
+          image: imageUrl,
           stock: parseInt(stock) || 10,
           description,
         }),
@@ -67,7 +69,7 @@ export default function NewProductPage() {
       try {
         data = await res.json();
       } catch {
-        alert('Server ne JSON response nahi diya. Status: ' + res.status + '. Image bahut badi ho sakti hai.');
+        alert('Server ne JSON response nahi diya. Status: ' + res.status);
         return;
       }
 
@@ -142,14 +144,21 @@ export default function NewProductPage() {
             <label htmlFor="product-file-upload" className="cursor-pointer space-y-2 block">
               <UploadCloud className="w-8 h-8 mx-auto text-amber-800" />
               <span className="text-xs text-gray-600 block font-medium">
-                {uploading ? 'Processing Image...' : 'Click to choose image file'}
+                {uploading ? 'Uploading Image...' : 'Click to choose image file'}
               </span>
             </label>
           </div>
 
-          {imageUrl && (
-            <div className="mt-2 flex items-center gap-2 text-xs text-green-700 font-semibold">
-              <CheckCircle2 className="w-4 h-4" /> Image Processed & Ready!
+          {imageUrl && !uploading && (
+            <div className="mt-2 space-y-2">
+              <div className="flex items-center gap-2 text-xs text-green-700 font-semibold">
+                <CheckCircle2 className="w-4 h-4" /> Image Uploaded & Ready!
+              </div>
+              <img
+                src={imageUrl}
+                alt="Preview"
+                className="w-32 h-32 object-cover rounded-lg border border-stone-200"
+              />
             </div>
           )}
         </div>
@@ -180,7 +189,7 @@ export default function NewProductPage() {
           disabled={uploading}
           className="w-full py-3 bg-[#6B1D2F] hover:bg-[#521624] text-[#F3E5AB] font-bold text-sm uppercase rounded-lg shadow transition-colors disabled:opacity-50"
         >
-          {uploading ? 'Processing Image...' : 'Publish Product'}
+          {uploading ? 'Uploading...' : 'Publish Product'}
         </button>
       </form>
     </div>
