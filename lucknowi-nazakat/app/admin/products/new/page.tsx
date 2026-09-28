@@ -1,197 +1,226 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { UploadCloud, CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
+import { useCart } from '@/context/CartContext';
 
-export default function NewProductPage() {
-  const router = useRouter();
-  const [name, setName] = useState('');
-  const [price, setPrice] = useState('');
-  const [category, setCategory] = useState('Kurtis');
-  const [imageUrl, setImageUrl] = useState('');
-  const [stock, setStock] = useState('10');
-  const [description, setDescription] = useState('');
-  const [uploading, setUploading] = useState(false);
+interface Product {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  category: string;
+  image?: string;
+  images?: string[];
+  stock: number;
+}
 
-  // Ab full quality image seedha Vercel Blob mein upload hogi
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+const SIZES = ['S', 'M', 'L', 'XL', 'XXL'];
+const FALLBACK_IMAGE =
+  'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800';
 
-    setUploading(true);
+export default function ProductDetailPage() {
+  const params = useParams<{ slug: string }>();
+  const slug = params?.slug;
 
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
+  const cartContext = useCart();
+  const addToCart = cartContext?.addToCart;
 
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [activeImage, setActiveImage] = useState(0);
+  const [size, setSize] = useState('M');
+  const [quantity, setQuantity] = useState(1);
+
+  useEffect(() => {
+    if (!slug) return;
+
+    fetch(`/api/products/${encodeURIComponent(slug)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.product) {
+          setProduct(data.product);
+        } else {
+          setNotFound(true);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Product fetch error:', err);
+        setNotFound(true);
+        setLoading(false);
       });
+  }, [slug]);
 
-      const data = await res.json();
+  // Multi-image support: images array first, single image as fallback
+  const gallery: string[] = product
+    ? (product.images && product.images.length > 0
+        ? product.images
+        : [product.image || FALLBACK_IMAGE]
+      ).filter(Boolean)
+    : [];
 
-      if (res.ok && data.url) {
-        setImageUrl(data.url);
-      } else {
-        alert(data.error || 'Image upload fail ho gaya.');
-      }
-    } catch (err) {
-      alert('Image upload karte waqt error aaya.');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !price || !imageUrl) {
-      alert('Kripya Name, Price aur Product Image select karein.');
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          price: parseFloat(price),
-          category,
-          image: imageUrl,
-          stock: parseInt(stock) || 10,
-          description,
-        }),
-      });
-
-      let data;
-      try {
-        data = await res.json();
-      } catch {
-        alert('Server ne JSON response nahi diya. Status: ' + res.status);
-        return;
-      }
-
-      if (res.ok && data.success) {
-        alert('Product successfully publish ho gaya!');
-        router.push('/admin/products');
-      } else {
-        alert(data.error || 'Database mein save nahi ho paaya.');
-      }
-    } catch (err: any) {
-      alert('Real Error: ' + err.message);
-    }
+  const handleAddToCart = () => {
+    if (!product || !addToCart) return;
+    addToCart({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      image: gallery[0] || FALLBACK_IMAGE,
+      category: product.category,
+      size,
+      quantity,
+    });
   };
 
   return (
-    <div className="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-md space-y-6">
-      <h1 className="text-2xl font-serif font-bold text-gray-900 border-b pb-4">
-        Add New Lucknowi Collection
-      </h1>
+    <div className="min-h-screen flex flex-col bg-[#FAF9F6]">
+      <Navbar />
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Product Name *</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Handcrafted White Chikankari Kurti"
-            className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-amber-800 outline-none"
-            required
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Price (₹) *</label>
-            <input
-              type="number"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="2499"
-              className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-amber-800 outline-none"
-              required
-            />
+      <main className="max-w-6xl mx-auto px-4 py-10 flex-1 w-full">
+        {loading ? (
+          <div className="py-24 text-center text-xs font-bold text-stone-500">
+            Loading product...
           </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Category *</label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:ring-1 focus:ring-amber-800 outline-none"
+        ) : notFound || !product ? (
+          <div className="py-24 text-center space-y-4">
+            <h1 className="font-serif text-2xl font-bold text-[#6B1D2F]">Product Not Found</h1>
+            <p className="text-xs text-stone-500">Ye product ab available nahi hai.</p>
+            <Link
+              href="/shop"
+              className="inline-block bg-[#6B1D2F] text-white px-6 py-2.5 rounded text-xs font-bold uppercase hover:bg-[#521624] transition"
             >
-              <option value="Kurtis">Kurtis</option>
-              <option value="Sarees">Sarees</option>
-              <option value="Suits">Suits</option>
-              <option value="Men">Men's Collection</option>
-            </select>
+              Back to Shop
+            </Link>
           </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Upload Product Image *</label>
-          <div className="border-2 border-dashed border-stone-300 p-4 rounded-xl text-center hover:bg-stone-50 transition-colors">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileUpload}
-              className="hidden"
-              id="product-file-upload"
-            />
-            <label htmlFor="product-file-upload" className="cursor-pointer space-y-2 block">
-              <UploadCloud className="w-8 h-8 mx-auto text-amber-800" />
-              <span className="text-xs text-gray-600 block font-medium">
-                {uploading ? 'Uploading Image...' : 'Click to choose image file'}
-              </span>
-            </label>
-          </div>
-
-          {imageUrl && !uploading && (
-            <div className="mt-2 space-y-2">
-              <div className="flex items-center gap-2 text-xs text-green-700 font-semibold">
-                <CheckCircle2 className="w-4 h-4" /> Image Uploaded & Ready!
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            {/* Image Gallery */}
+            <div className="space-y-4">
+              <div className="bg-white border border-stone-200 rounded-lg p-3 shadow-sm">
+                <img
+                  src={gallery[activeImage] || FALLBACK_IMAGE}
+                  alt={product.name}
+                  className="w-full h-[480px] object-cover rounded"
+                />
               </div>
-              <img
-                src={imageUrl}
-                alt="Preview"
-                className="w-32 h-32 object-cover rounded-lg border border-stone-200"
-              />
+
+              {gallery.length > 1 && (
+                <div className="flex gap-3">
+                  {gallery.map((img, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setActiveImage(idx)}
+                      className={`w-20 h-20 rounded border-2 overflow-hidden cursor-pointer transition ${
+                        activeImage === idx ? 'border-[#6B1D2F]' : 'border-stone-200'
+                      }`}
+                    >
+                      <img
+                        src={img}
+                        alt={`${product.name} ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Stock Quantity</label>
-          <input
-            type="number"
-            value={stock}
-            onChange={(e) => setStock(e.target.value)}
-            className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-amber-800 outline-none"
-          />
-        </div>
+            {/* Product Info */}
+            <div className="space-y-5">
+              <span className="text-[10px] font-bold uppercase text-[#F3E5AB] bg-[#6B1D2F] px-2 py-0.5 rounded">
+                {product.category}
+              </span>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Description</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Fabric details, embroidery style..."
-            rows={3}
-            className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-amber-800 outline-none"
-          />
-        </div>
+              <h1 className="font-serif text-3xl font-bold text-stone-900">{product.name}</h1>
 
-        <button
-          type="submit"
-          disabled={uploading}
-          className="w-full py-3 bg-[#6B1D2F] hover:bg-[#521624] text-[#F3E5AB] font-bold text-sm uppercase rounded-lg shadow transition-colors disabled:opacity-50"
-        >
-          {uploading ? 'Uploading...' : 'Publish Product'}
-        </button>
-      </form>
+              <p className="text-2xl font-bold text-[#6B1D2F]">₹{product.price}</p>
+
+              {product.description && (
+                <p className="text-sm text-stone-600 leading-relaxed">{product.description}</p>
+              )}
+
+              <span
+                className={`inline-block text-[11px] font-bold px-2.5 py-1 rounded ${
+                  product.stock > 0
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-rose-100 text-rose-800'
+                }`}
+              >
+                {product.stock > 0 ? 'In Stock' : 'Out of Stock'}
+              </span>
+
+              {/* Size Selector */}
+              <div>
+                <p className="text-xs font-bold uppercase text-stone-700 mb-2">Select Size</p>
+                <div className="flex flex-wrap gap-2">
+                  {SIZES.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSize(s)}
+                      className={`w-12 h-10 rounded border text-xs font-bold cursor-pointer transition ${
+                        size === s
+                          ? 'bg-[#6B1D2F] text-white border-[#6B1D2F]'
+                          : 'bg-white text-stone-700 border-stone-300 hover:border-[#6B1D2F]'
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quantity */}
+              <div>
+                <p className="text-xs font-bold uppercase text-stone-700 mb-2">Quantity</p>
+                <div className="inline-flex items-center border border-stone-300 rounded bg-white">
+                  <button
+                    type="button"
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    className="px-4 py-2 text-sm font-bold hover:bg-stone-100 cursor-pointer"
+                  >
+                    -
+                  </button>
+                  <span className="px-4 text-sm font-bold">{quantity}</span>
+                  <button
+                    type="button"
+                    onClick={() => setQuantity((q) => q + 1)}
+                    className="px-4 py-2 text-sm font-bold hover:bg-stone-100 cursor-pointer"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleAddToCart}
+                  disabled={product.stock <= 0}
+                  className="flex-1 bg-[#6B1D2F] text-white py-3.5 rounded text-xs font-bold uppercase tracking-wider hover:bg-[#521624] transition disabled:opacity-50 cursor-pointer shadow"
+                >
+                  {product.stock > 0 ? '+ Add To Cart' : 'Out of Stock'}
+                </button>
+                <Link
+                  href="/shop"
+                  className="px-6 py-3.5 border border-[#6B1D2F] text-[#6B1D2F] rounded text-xs font-bold uppercase text-center hover:bg-stone-50 transition"
+                >
+                  Back
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+
+      <Footer />
     </div>
   );
 }

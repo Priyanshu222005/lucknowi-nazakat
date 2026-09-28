@@ -9,10 +9,6 @@ interface RouteContext {
   params: Promise<{ slug: string }>;
 }
 
-/**
- * Safely extracts and decodes the `slug` param from the route context.
- * Returns null if missing or literally the string "undefined".
- */
 async function getParamSlug(context: RouteContext): Promise<string | null> {
   const params = await context.params;
   if (!params?.slug || params.slug === 'undefined') return null;
@@ -20,9 +16,41 @@ async function getParamSlug(context: RouteContext): Promise<string | null> {
 }
 
 /**
+ * GET /api/products/[slug]
+ * Returns a single product by ID (falls back to name match).
+ */
+export async function GET(req: NextRequest, context: RouteContext) {
+  try {
+    const identifier = await getParamSlug(context);
+
+    if (!identifier) {
+      return NextResponse.json(
+        { success: false, error: 'A valid product identifier is required.' },
+        { status: 400 }
+      );
+    }
+
+    const product = await prisma.product.findFirst({
+      where: { OR: [{ id: identifier }, { name: identifier }] },
+    });
+
+    if (!product) {
+      return NextResponse.json(
+        { success: false, error: 'Product not found.' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ success: true, product });
+  } catch (error) {
+    console.error('[GET /api/products/[slug]] Error:', error);
+    const message = error instanceof Error ? error.message : 'Failed to fetch product.';
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
+  }
+}
+
+/**
  * DELETE /api/products/[slug]
- * Deletes a product by its ID. Falls back to deleting by name
- * if no matching ID is found (for legacy records without proper IDs).
  */
 export async function DELETE(req: NextRequest, context: RouteContext) {
   try {
@@ -35,28 +63,20 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
       );
     }
 
-    console.log(`[DELETE /api/products] Attempting delete for identifier: "${identifier}"`);
-
-    // Attempt 1: delete by primary key (id)
     try {
-      const deletedProduct = await prisma.product.delete({
-        where: { id: identifier },
-      });
-      console.log(`[DELETE /api/products] Deleted by ID: ${deletedProduct.id}`);
+      await prisma.product.delete({ where: { id: identifier } });
       return NextResponse.json({ success: true, message: 'Product deleted successfully.' });
     } catch (error) {
-      // P2025 = "Record to delete does not exist" — expected when identifier isn't a valid ID
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2025'
       ) {
         console.log('[DELETE /api/products] No match by ID, falling back to name match...');
       } else {
-        throw error; // unexpected error — bubble up
+        throw error;
       }
     }
 
-    // Attempt 2: fallback — delete by name (legacy support)
     const fallbackResult = await prisma.product.deleteMany({
       where: { name: identifier },
     });
@@ -68,7 +88,6 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
       );
     }
 
-    console.log(`[DELETE /api/products] Deleted ${fallbackResult.count} product(s) by name match.`);
     return NextResponse.json({ success: true, message: 'Product deleted successfully.' });
   } catch (error) {
     console.error('[DELETE /api/products] Unexpected error:', error);
@@ -79,7 +98,7 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
 
 /**
  * PATCH /api/products/[slug]
- * Updates a product's stock quantity by ID, with a name-based fallback.
+ * Updates stock quantity.
  */
 export async function PATCH(req: NextRequest, context: RouteContext) {
   try {
@@ -102,9 +121,6 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       );
     }
 
-    console.log(`[PATCH /api/products] Updating stock for "${identifier}" to ${newStock}`);
-
-    // Attempt 1: update by primary key (id)
     try {
       await prisma.product.update({
         where: { id: identifier },
@@ -122,7 +138,6 @@ export async function PATCH(req: NextRequest, context: RouteContext) {
       }
     }
 
-    // Attempt 2: fallback — update by name
     const fallbackResult = await prisma.product.updateMany({
       where: { name: identifier },
       data: { stock: newStock },
