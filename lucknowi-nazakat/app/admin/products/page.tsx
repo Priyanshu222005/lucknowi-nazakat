@@ -1,174 +1,197 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
 import React, { useState, useEffect } from 'react';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import Image from 'next/image';
+import Link from 'next/link';
 
 interface Product {
-  id?: string;
-  _id?: string;
+  id: string;
   name: string;
   price: number;
-  category: string;
+  category?: string;
   image?: string;
-  stock: number;
-  description?: string;
+  imageUrl?: string;
+  stock?: number;
+  inStock?: boolean;
 }
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchProducts = async () => {
-    try {
-      const res = await fetch('/api/products');
-      const data = await res.json();
-      if (Array.isArray(data)) setProducts(data);
-      else if (data.products) setProducts(data.products);
-    } catch (err) {
-      console.error('Fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [loading, setLoading] = useState<boolean>(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProducts();
   }, []);
 
-  const handleDeleteProduct = async (product: Product) => {
-    const identifier = product.id || product._id || product.name;
-    if (!identifier) {
-      alert('Error: Could not determine which product to delete.');
-      return;
-    }
-
-    const confirmed = confirm(`Kya aap "${product.name}" ko hamesha ke liye remove karna chahte hain?`);
-    if (!confirmed) return;
-
+  const fetchProducts = async () => {
     try {
-      const res = await fetch(`/api/products/${encodeURIComponent(identifier)}`, {
-        method: 'DELETE',
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to delete product.');
+      setLoading(true);
+      const res = await fetch('/api/products', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        const normalizedProducts = Array.isArray(data)
+          ? data.map((product: any) => ({
+              ...product,
+              stock: product.stock ?? (product.inStock === false ? 0 : 10),
+              inStock: product.inStock ?? product.stock !== 0,
+              image: product.image || product.imageUrl || '/images/placeholder.jpg',
+              imageUrl: product.imageUrl || product.image || '/images/placeholder.jpg',
+            }))
+          : [];
+        setProducts(normalizedProducts);
       }
-
-      alert('✅ Product successfully remove ho gaya!');
-      await fetchProducts();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error occurred.';
-      alert(`Delete fail: ${message}`);
+      console.error('Fetch products error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleToggleStock = async (product: Product) => {
-    const identifier = product.id || product._id || product.name;
-    if (!identifier) {
-      alert('Error: Could not determine which product to update.');
-      return;
-    }
-
-    const newStock = product.stock > 0 ? 0 : 10;
+  const handleToggleStock = async (id: string, currentInStock?: boolean) => {
+    setActionLoading(id);
+    const newStockState = currentInStock === false ? true : false;
 
     try {
-      const res = await fetch(`/api/products/${encodeURIComponent(identifier)}`, {
+      const res = await fetch(`/api/products/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stock: newStock }),
+        body: JSON.stringify({
+          inStock: newStockState,
+          stock: newStockState ? 10 : 0,
+        }),
       });
-      const data = await res.json();
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to update stock.');
+      if (res.ok) {
+        setProducts((prev) =>
+          prev.map((item) =>
+            item.id === id
+              ? { ...item, inStock: newStockState, stock: newStockState ? 10 : 0 }
+              : item
+          )
+        );
+      } else {
+        alert('Stock status update failed!');
       }
-
-      await fetchProducts();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error occurred.';
-      alert(`Stock update fail: ${message}`);
+      console.error('Error toggling stock:', err);
+      alert('Stock status update failed!');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRemoveProduct = async (id: string) => {
+    if (!confirm('Are you sure you want to remove this product?')) return;
+
+    setActionLoading(id);
+    try {
+      const res = await fetch(`/api/products/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (res.ok) {
+        setProducts((prev) => prev.filter((item) => item.id !== id));
+      } else {
+        alert('Failed to remove product!');
+      }
+    } catch (err) {
+      console.error('Error deleting product:', err);
+      alert('Error removing product!');
+    } finally {
+      setActionLoading(null);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FAF9F6]">
-      <Navbar />
-      <main className="max-w-6xl mx-auto px-4 py-10 flex-1 w-full space-y-10">
-        <div className="flex justify-between items-center">
-         <h1 className="font-serif text-3xl font-bold text-[#6B1D2F]">Manage Products</h1>
-          
-                      
-            <a href="/admin/products/new" className="bg-[#6B1D2F] text-white px-5 py-2.5 rounded text-xs font-bold uppercase hover:bg-[#521624] transition">+ Add New Product</a>
-        </div>
-        <div className="bg-white p-6 md:p-8 rounded-lg border border-stone-200 shadow-sm">
-          <h2 className="font-serif text-xl font-bold text-stone-800 border-b pb-3 mb-6">
-            All Added Products ({products.length})
-          </h2>
-          {loading ? (
-            <p className="text-xs text-stone-500 py-4">Loading products list...</p>
-          ) : products.length === 0 ? (
-            <p className="text-xs text-stone-500 py-4">Abhi koi products add nahi hain.</p>
-          ) : (
-            <div className="divide-y divide-stone-200">
-              {products.map((prod, index) => (
+    <div className="max-w-5xl mx-auto p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-serif font-bold text-[#6B1D2F]">
+          Manage Products
+        </h1>
+        <Link
+          href="/admin/products/new"
+          className="bg-[#6B1D2F] hover:bg-[#521624] text-white text-xs font-bold px-5 py-2.5 rounded-lg shadow uppercase tracking-wider transition"
+        >
+          + ADD NEW PRODUCT
+        </Link>
+      </div>
+
+      <div className="bg-white rounded-xl border border-stone-200 p-6 shadow-sm">
+        <h2 className="text-lg font-serif font-bold text-stone-800 mb-4 pb-2 border-b border-stone-100">
+          All Added Products ({products.length})
+        </h2>
+
+        {loading ? (
+          <p className="text-xs text-stone-500 py-4 text-center">Loading products...</p>
+        ) : products.length === 0 ? (
+          <p className="text-xs text-stone-500 py-4 text-center">No products found.</p>
+        ) : (
+          <div className="space-y-4">
+            {products.map((product) => {
+              const imageSrc = product.imageUrl || product.image || '/images/placeholder.jpg';
+              const isInStock = product.inStock !== false;
+
+              return (
                 <div
-                  key={prod.id || prod._id || index}
-                  className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  key={product.id}
+                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-stone-50/50 rounded-lg border border-stone-200/80 gap-4"
                 >
-                  <div className="flex items-center space-x-4">
-                    <img
-                      src={prod.image || 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800'}
-                      alt={prod.name}
-                      className="w-16 h-16 object-cover rounded border border-stone-200"
-                      onError={(e) => {
-                        e.currentTarget.src = 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=800';
-                      }}
-                    />
+                  <div className="flex items-center gap-4">
+                    <div className="relative w-16 h-16 rounded-md overflow-hidden bg-stone-200 flex-shrink-0">
+                      <Image
+                        src={imageSrc}
+                        alt={product.name}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
                     <div>
-                      <h3 className="font-bold text-stone-900 text-sm">{prod.name}</h3>
+                      <h3 className="font-bold text-sm text-stone-900">
+                        {product.name}
+                      </h3>
                       <p className="text-xs text-stone-500">
-                        ₹{prod.price} | Category: <span className="font-semibold">{prod.category}</span>
+                        ₹{product.price} | Category: {product.category || 'Kurtis'}
                       </p>
                       <span
-                        className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded mt-1 ${
-                          prod.stock > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                        className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded ${
+                          isInStock
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-rose-100 text-rose-800'
                         }`}
                       >
-                        {prod.stock > 0 ? 'In Stock' : 'Out of Stock'}
+                        {isInStock ? 'In Stock' : 'Out of Stock / Sold'}
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3">
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
                     <button
-                      type="button"
-                      onClick={() => handleToggleStock(prod)}
-                      className={`px-3 py-2 rounded text-xs font-bold transition cursor-pointer ${
-                        prod.stock > 0
-                          ? 'bg-amber-100 text-amber-900 hover:bg-amber-200'
-                          : 'bg-emerald-100 text-emerald-900 hover:bg-emerald-200'
-                      }`}
+                      onClick={() => handleToggleStock(product.id, product.inStock)}
+                      disabled={actionLoading === product.id}
+                      className="flex-1 sm:flex-none bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold px-4 py-2 rounded transition disabled:opacity-50"
                     >
-                      {prod.stock > 0 ? 'Mark Out of Stock' : 'Mark In Stock'}
+                      {actionLoading === product.id
+                        ? 'Updating...'
+                        : isInStock
+                        ? 'Mark Out of Stock'
+                        : 'Mark In Stock'}
                     </button>
+
                     <button
-                      type="button"
-                      onClick={() => handleDeleteProduct(prod)}
-                      className="bg-rose-600 text-white px-4 py-2 rounded text-xs font-bold uppercase tracking-wider hover:bg-rose-700 transition cursor-pointer shadow"
+                      onClick={() => handleRemoveProduct(product.id)}
+                      disabled={actionLoading === product.id}
+                      className="flex-1 sm:flex-none bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-4 py-2 rounded transition disabled:opacity-50"
                     >
-                      Remove
+                      {actionLoading === product.id ? 'Deleting...' : 'REMOVE'}
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </main>
-      <Footer />
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

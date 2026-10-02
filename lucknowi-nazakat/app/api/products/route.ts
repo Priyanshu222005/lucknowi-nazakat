@@ -1,18 +1,12 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
-const prisma = globalForPrisma.prisma || new PrismaClient();
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+import { createProduct, getAllProducts } from '@/lib/services/productService';
 
-// 1. All Products Fetch Handler
 export async function GET() {
   try {
-    const products = await prisma.product.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
+    const products = await getAllProducts();
     return NextResponse.json(products);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Fetch products error:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to fetch products' },
@@ -21,28 +15,23 @@ export async function GET() {
   }
 }
 
-// 2. New Product Add Handler
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, price, category, image, stock, description } = body;
-
-    const newProduct = await prisma.product.create({
-      data: {
-        name: String(name || ''),
-        price: parseFloat(price) || 0,
-        category: String(category || ''),
-        image: String(image || ''),
-        stock: parseInt(stock) || 0,
-        description: String(description || ''),
-      },
+    const product = await createProduct({
+      ...body,
+      image: body.image ?? body.imageUrl,
+      stock: body.stock ?? (body.inStock === false ? 0 : 10),
     });
 
-    return NextResponse.json({ success: true, product: newProduct });
-  } catch (error: any) {
+    return NextResponse.json({ success: true, product });
+  } catch (error: unknown) {
     console.error('Product creation error:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Server error' },
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Server error',
+      },
       { status: 500 }
     );
   }

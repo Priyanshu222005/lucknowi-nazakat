@@ -1,30 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
-const prisma = globalForPrisma.prisma || new PrismaClient();
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
-
-export async function PATCH(
-  req: NextRequest,
-  context: any
-) {
+export async function GET() {
   try {
-    const params = await context.params;
-    const id = params?.id;
-    const { paymentStatus } = await req.json();
-
-    const updatedOrder = await prisma.order.update({
-      where: { id },
-      data: { paymentStatus },
+    const orders = await prisma.order.findMany({
+      orderBy: { createdAt: 'desc' },
     });
-
-    return NextResponse.json({ success: true, order: updatedOrder });
-  } catch (error: any) {
-    console.error('Order status update error:', error);
-    return NextResponse.json(
-      { success: false, error: error.message || 'Failed to update order status' },
-      { status: 500 }
-    );
+    return NextResponse.json(orders || [], { status: 200 });
+  } catch (error) {
+    console.error('Orders GET Error:', error);
+    return NextResponse.json([], { status: 200 }); // Return empty array on error to prevent JSON parse crash
   }
 }
