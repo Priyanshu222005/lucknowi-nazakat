@@ -2,145 +2,198 @@ import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
-import ProductActions from './ProductActions';
 
 interface Product {
   id: string;
   name: string;
   price: number;
   category?: string;
-  description?: string;
   image?: string;
   imageUrl?: string;
 }
 
-async function getProduct(id: string): Promise<Product | null> {
+async function getFeaturedProducts(): Promise<Product[]> {
   try {
-    const product = await prisma.product.findUnique({
-      where: { id },
+    const products = await prisma.product.findMany({
+      take: 8,
+      orderBy: { createdAt: 'desc' },
     });
 
-    if (!product) return null;
-
-    return {
-      id: product.id,
-      name: product.name,
-      price: Number(product.price),
-      category: product.category || 'Chikankari',
-      description: product.description || '',
-      image: product.imageUrl || product.image || '/images/placeholder.jpg',
-    };
+    return products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      price: Number(p.price),
+      category: p.category || 'Chikankari',
+      image: p.imageUrl || p.image || '/images/placeholder.jpg',
+    }));
   } catch (error) {
-    console.error('Database fetch error:', error);
-    return null;
+    console.error('Error fetching featured products:', error);
+    return [];
   }
 }
 
-export default async function ProductDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const product = await getProduct(id);
+export default async function HomePage() {
+  const products = await getFeaturedProducts();
 
-  if (!product) {
-    return (
-      <div className="min-h-[60vh] bg-[#FAF7F2] flex flex-col items-center justify-center p-4">
-        <h2 className="text-xl font-bold text-[#6B1D2F] mb-2 font-serif">
-          Product Not Found
-        </h2>
-        <p className="text-stone-600 text-xs mb-6">
-          The requested product ID could not be found in the database.
-        </p>
-        <Link
-          href="/shop"
-          className="bg-[#6B1D2F] text-white text-xs font-bold px-6 py-2.5 rounded-lg uppercase tracking-wider hover:bg-[#521624] transition"
-        >
-          Back to Shop
-        </Link>
-      </div>
-    );
-  }
-
-  const imageSrc = product.image || product.imageUrl || '/images/placeholder.jpg';
+  const categories = [
+    {
+      name: "Georgette & Cotton Kurtis",
+      sub: "Women Collection",
+      image: '/images/placeholder.jpg',
+      href: '/shop?cat=kurtis',
+    },
+    {
+      name: "Modal Silk & Pure Drapings",
+      sub: "Saree Specials",
+      image: '/images/placeholder.jpg',
+      href: '/shop?cat=sarees',
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] py-8 md:py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto bg-white rounded-2xl border border-stone-200/80 p-6 md:p-10 shadow-sm">
-        <div className="mb-6">
+    <div className="min-h-screen bg-[#FAF7F2] text-stone-900">
+      {/* Announcement Bar */}
+      <div className="bg-[#521624] text-amber-100 text-[11px] font-bold py-2 text-center tracking-widest uppercase border-b border-amber-900/40">
+        ✨ Festival Special: Free Shipping Across India On Orders Above ₹1999 ✨
+      </div>
+
+      {/* Hero Banner Section */}
+      <section className="bg-[#6B1D2F] text-white py-12 md:py-16 px-4 text-center border-b border-stone-200">
+        <div className="max-w-4xl mx-auto space-y-3">
+          <span className="text-[10px] uppercase tracking-widest text-amber-200 font-bold bg-white/10 px-3 py-1 rounded-full inline-block">
+            Handcrafted Elegance From Lucknow
+          </span>
+
+          <h1 className="text-3xl md:text-5xl font-serif font-bold text-amber-100 leading-tight">
+            Timeless Chikankari Luxury
+          </h1>
+
+          <p className="text-stone-200 text-xs md:text-sm max-w-xl mx-auto font-light leading-relaxed">
+            Discover exquisite hand-embroidered Kurtis and Sarees crafted by master artisans with authentic Lucknowi heritage.
+          </p>
+
+          <div className="pt-2">
+            <Link
+              href="/shop"
+              className="bg-[#FAF7F2] text-[#6B1D2F] hover:bg-white font-bold text-xs uppercase tracking-wider px-7 py-3 rounded-lg shadow transition inline-block"
+            >
+              EXPLORE COLLECTION
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Featured Categories */}
+      <section className="max-w-6xl mx-auto py-10 px-4 sm:px-6">
+        <div className="flex justify-between items-end mb-6 border-b border-stone-200 pb-3">
+          <div>
+            <h2 className="text-xl md:text-2xl font-serif font-bold text-[#6B1D2F]">
+              Featured Categories
+            </h2>
+          </div>
           <Link
             href="/shop"
-            className="text-xs uppercase tracking-widest text-[#6B1D2F] font-bold hover:underline inline-flex items-center gap-1.5"
+            className="text-xs font-bold text-[#6B1D2F] uppercase tracking-wider hover:underline"
           >
-            ← Back to Collection
+            VIEW ALL PRODUCTS →
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-start">
-          {/* Dynamic Product Image */}
-          <div className="md:col-span-6">
-            <div className="relative w-full h-[420px] md:h-[520px] bg-stone-100 rounded-xl overflow-hidden border border-stone-200/60 shadow-inner">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {categories.map((cat, index) => (
+            <Link
+              key={index}
+              href={cat.href}
+              className="group relative h-48 md:h-56 rounded-xl overflow-hidden shadow-sm border border-stone-200 block"
+            >
               <Image
-                src={imageSrc}
-                alt={product.name}
+                src={cat.image}
+                alt={cat.name}
                 fill
-                sizes="(max-width: 768px) 100vw, 50vw"
-                className="object-cover hover:scale-105 transition duration-500"
-                priority
+                className="object-cover group-hover:scale-105 transition duration-500"
               />
-            </div>
-          </div>
-
-          {/* Dynamic Product Details */}
-          <div className="md:col-span-6 space-y-5">
-            <div>
-              <span className="text-[10px] font-bold uppercase tracking-widest bg-[#6B1D2F] text-white px-2.5 py-1 rounded inline-block mb-3">
-                {product.category || 'Chikankari'}
-              </span>
-
-              <h1 className="text-2xl md:text-3xl font-serif font-bold text-stone-900 leading-snug">
-                {product.name}
-              </h1>
-
-              <div className="flex items-baseline gap-3 mt-3">
-                <span className="text-2xl md:text-3xl font-bold text-[#6B1D2F]">
-                  ₹{product.price}
+              <div className="absolute inset-0 bg-gradient-to-t from-[#521624] via-[#521624]/60 to-transparent p-6 flex flex-col justify-end">
+                <span className="text-[10px] uppercase font-bold tracking-widest text-amber-200 mb-1">
+                  {cat.sub}
                 </span>
-                <span className="text-xs text-stone-500">
-                  Inclusive of all taxes
-                </span>
+                <h3 className="text-lg md:text-xl font-serif font-bold text-white">
+                  {cat.name}
+                </h3>
               </div>
-            </div>
-
-            <p className="text-stone-600 text-xs md:text-sm leading-relaxed border-t border-b border-stone-100 py-4">
-              {product.description ||
-                'Authentic hand-embroidered Lucknowi Chikankari product crafted with premium fabric for absolute elegance.'}
-            </p>
-
-            <div className="space-y-2 text-xs text-stone-700 font-medium">
-              <p>
-                <span className="text-stone-400 font-normal">Fabric:</span> Pure Cotton / Georgette
-              </p>
-              <p>
-                <span className="text-stone-400 font-normal">Craft:</span> Hand Embroidered Chikankari
-              </p>
-              <p>
-                <span className="text-stone-400 font-normal">Fit Type:</span> Regular / Comfort Fit
-              </p>
-            </div>
-
-            <ProductActions
-              product={{
-                id: product.id,
-                name: product.name,
-                price: product.price,
-                image: imageSrc,
-              }}
-            />
-          </div>
+            </Link>
+          ))}
         </div>
-      </div>
+      </section>
+
+      {/* Trending Products Grid */}
+      <section className="max-w-6xl mx-auto py-6 px-4 sm:px-6 mb-12">
+        <div className="flex justify-between items-end mb-6 border-b border-stone-200 pb-3">
+          <div>
+            <h2 className="text-xl md:text-2xl font-serif font-bold text-[#6B1D2F]">
+              Trending Collection
+            </h2>
+          </div>
+          <Link
+            href="/shop"
+            className="text-xs font-bold text-[#6B1D2F] uppercase tracking-wider hover:underline"
+          >
+            SHOP ALL →
+          </Link>
+        </div>
+
+        {products.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-6">
+            {products.map((product) => (
+              <div
+                key={product.id}
+                className="bg-white rounded-xl border border-stone-200 overflow-hidden shadow-sm hover:shadow-md transition flex flex-col justify-between"
+              >
+                <Link href={`/product/${product.id}`} className="block relative group">
+                  <div className="relative w-full h-52 sm:h-64 bg-stone-100 overflow-hidden">
+                    <Image
+                      src={product.image || '/images/placeholder.jpg'}
+                      alt={product.name}
+                      fill
+                      sizes="(max-width: 768px) 50vw, 25vw"
+                      className="object-cover group-hover:scale-105 transition duration-500"
+                    />
+                  </div>
+                  <div className="p-3">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B1D2F] bg-stone-100 px-2 py-0.5 rounded">
+                      {product.category}
+                    </span>
+                    <h3 className="text-xs md:text-sm font-semibold text-stone-800 line-clamp-1 mt-1.5">
+                      {product.name}
+                    </h3>
+                    <p className="text-sm md:text-base font-bold text-[#6B1D2F] mt-1">
+                      ₹{product.price}
+                    </p>
+                  </div>
+                </Link>
+
+                <div className="p-3 pt-0">
+                  <Link
+                    href={`/product/${product.id}`}
+                    className="w-full block text-center bg-[#6B1D2F] hover:bg-[#521624] text-white text-[11px] font-bold uppercase tracking-wider py-2 rounded transition"
+                  >
+                    View Details
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-10 bg-white rounded-xl border border-stone-200">
+            <p className="text-stone-500 text-xs">Products available directly in shop section.</p>
+            <Link
+              href="/shop"
+              className="mt-3 inline-block bg-[#6B1D2F] text-white text-xs font-bold px-6 py-2 rounded"
+            >
+              Go To Shop
+            </Link>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
