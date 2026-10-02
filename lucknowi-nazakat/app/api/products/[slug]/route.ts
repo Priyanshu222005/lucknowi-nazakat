@@ -1,95 +1,85 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// 1. GET - Fetch single product
+// GET Single Product
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: Promise<{ slug?: string; id?: string }> }
 ) {
   try {
-    const { slug } = await params;
+    const resolvedParams = await params;
+    const productId = resolvedParams.slug || resolvedParams.id;
 
-    if (!slug) {
-      return NextResponse.json({ error: 'ID/Slug is required' }, { status: 400 });
+    if (!productId) {
+      return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
     }
 
     const product = await prisma.product.findUnique({
-      where: { id: slug },
+      where: { id: productId },
     });
 
     if (!product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    return NextResponse.json({
-      id: product.id,
-      name: product.name,
-      price: Number(product.price),
-      category: product.category || 'Chikankari',
-      description: product.description || '',
-      image: product.imageUrl || product.image || '/images/placeholder.jpg',
-    });
+    return NextResponse.json(product, { status: 200 });
   } catch (error) {
-    console.error('API Fetch Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch product' },
-      { status: 500 }
-    );
+    console.error('GET Error:', error);
+    return NextResponse.json({ error: 'Failed to fetch product' }, { status: 500 });
   }
 }
 
-// 2. PATCH - Update product (Admin Edit)
+// PATCH / PUT - Mark Out of Stock / Update Product Status
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: Promise<{ slug?: string; id?: string }> }
 ) {
   try {
-    const { slug } = await params;
+    const resolvedParams = await params;
+    const productId = resolvedParams.slug || resolvedParams.id;
     const body = await request.json();
 
+    if (!productId) {
+      return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
+    }
+
     const updatedProduct = await prisma.product.update({
-      where: { id: slug },
+      where: { id: productId },
       data: {
+        ...(body.inStock !== undefined && { inStock: body.inStock }),
+        ...(body.isOutOfStock !== undefined && { inStock: !body.isOutOfStock }),
         ...(body.name && { name: body.name }),
         ...(body.price && { price: parseFloat(body.price) }),
-        ...(body.category && { category: body.category }),
-        ...(body.description && { description: body.description }),
-        ...(body.image && { imageUrl: body.image }),
-        ...(body.imageUrl && { imageUrl: body.imageUrl }),
       },
     });
 
     return NextResponse.json(updatedProduct, { status: 200 });
   } catch (error) {
-    console.error('API Update Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to update product' },
-      { status: 500 }
-    );
+    console.error('PATCH Error:', error);
+    return NextResponse.json({ error: 'Failed to update product status' }, { status: 500 });
   }
 }
 
-// 3. DELETE - Delete product (Admin Remove)
+// DELETE - Remove Product
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: Promise<{ slug?: string; id?: string }> }
 ) {
   try {
-    const { slug } = await params;
+    const resolvedParams = await params;
+    const productId = resolvedParams.slug || resolvedParams.id;
+
+    if (!productId) {
+      return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
+    }
 
     await prisma.product.delete({
-      where: { id: slug },
+      where: { id: productId },
     });
 
-    return NextResponse.json(
-      { message: 'Product deleted successfully' },
-      { status: 200 }
-    );
+    return NextResponse.json({ message: 'Product deleted successfully' }, { status: 200 });
   } catch (error) {
-    console.error('API Delete Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete product' },
-      { status: 500 }
-    );
+    console.error('DELETE Error:', error);
+    return NextResponse.json({ error: 'Failed to delete product' }, { status: 500 });
   }
 }
