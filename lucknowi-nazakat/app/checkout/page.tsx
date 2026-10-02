@@ -46,7 +46,7 @@ export default function CheckoutPage() {
 
     const message = `*NEW ORDER - LUCKNOWI NAZAKAT*\n\n*Customer Details:*\nName: ${formData.fullName}\nPhone: ${formData.phone}\nAddress: ${formData.address}, ${formData.city}, ${formData.state} - ${formData.pincode}\n\n*Order Items:*\n${itemsList}\n\n*Total Amount Payable:* ₹${totalPayable}`;
 
-    const whatsappUrl = `https://wa.me/919999999999?text=${encodeURIComponent(
+    const whatsappUrl = `https://wa.me/919934578298?text=${encodeURIComponent(
       message
     )}`;
     window.open(whatsappUrl, '_blank');
