@@ -66,11 +66,20 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
   }
 }
 
-// PUT /api/products/[slug]  ->  edit product
-export async function PUT(request: NextRequest, { params }: RouteContext) {
+// Shared by PUT and PATCH: updates only the fields that are sent
+async function updateProduct(request: NextRequest, { params }: RouteContext) {
   try {
     const { slug } = await params;
-    const body = (await request.json()) as ProductRecord;
+
+    let body: ProductRecord = {};
+    try {
+      body = (await request.json()) as ProductRecord;
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'Request body must be valid JSON' },
+        { status: 400 }
+      );
+    }
 
     const data: ProductRecord = {};
 
@@ -78,13 +87,33 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     if (body.description !== undefined) data.description = String(body.description);
     if (body.category !== undefined) data.category = String(body.category);
     if (body.price !== undefined) data.price = Number(body.price);
-    if (body.stock !== undefined) data.stock = Math.max(0, Math.floor(Number(body.stock)));
     if (body.image !== undefined) data.image = String(body.image);
     if (Array.isArray(body.images)) data.images = body.images.map(String);
+
+    // Stock can arrive as a number, or as an "in stock / out of stock" flag
+    if (body.stock !== undefined) {
+      data.stock = Math.max(0, Math.floor(Number(body.stock)));
+    } else if (body.inStock === false || body.outOfStock === true) {
+      data.stock = 0;
+    }
 
     if (data.price !== undefined && Number.isNaN(data.price)) {
       return NextResponse.json(
         { success: false, error: 'Price must be a number' },
+        { status: 400 }
+      );
+    }
+
+    if (data.stock !== undefined && Number.isNaN(data.stock)) {
+      return NextResponse.json(
+        { success: false, error: 'Stock must be a number' },
+        { status: 400 }
+      );
+    }
+
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'No fields to update' },
         { status: 400 }
       );
     }
@@ -108,12 +137,22 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
         { status: 404 }
       );
     }
-    console.error('PUT /api/products/[slug] error:', error);
+    console.error('Update /api/products/[slug] error:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to update product' },
       { status: 500 }
     );
   }
+}
+
+// PUT /api/products/[slug]  ->  edit product
+export async function PUT(request: NextRequest, context: RouteContext) {
+  return updateProduct(request, context);
+}
+
+// PATCH /api/products/[slug]  ->  partial edit (e.g. stock update)
+export async function PATCH(request: NextRequest, context: RouteContext) {
+  return updateProduct(request, context);
 }
 
 // DELETE /api/products/[slug]  ->  remove product
