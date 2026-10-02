@@ -1,197 +1,146 @@
-'use client';
+import React from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { prisma } from '@/lib/prisma';
+import ProductActions from './ProductActions';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { UploadCloud, CheckCircle2 } from 'lucide-react';
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  category?: string;
+  description?: string;
+  image?: string;
+  imageUrl?: string;
+}
 
-export default function NewProductPage() {
-  const router = useRouter();
-  const [name, setName] = useState('');
-  const [price, setPrice] = useState('');
-  const [category, setCategory] = useState('Kurtis');
-  const [imageUrl, setImageUrl] = useState('');
-  const [stock, setStock] = useState('10');
-  const [description, setDescription] = useState('');
-  const [uploading, setUploading] = useState(false);
+async function getProduct(id: string): Promise<Product | null> {
+  try {
+    const product = await prisma.product.findUnique({
+      where: { id },
+    });
 
-  // Ab full quality image seedha Vercel Blob mein upload hogi
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    if (!product) return null;
 
-    setUploading(true);
+    return {
+      id: product.id,
+      name: product.name,
+      price: Number(product.price),
+      category: product.category || 'Chikankari',
+      description: product.description || '',
+      image: product.imageUrl || product.image || '/images/placeholder.jpg',
+    };
+  } catch (error) {
+    console.error('Database fetch error:', error);
+    return null;
+  }
+}
 
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
+export default async function ProductDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const product = await getProduct(id);
 
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
+  if (!product) {
+    return (
+      <div className="min-h-[60vh] bg-[#FAF7F2] flex flex-col items-center justify-center p-4">
+        <h2 className="text-xl font-bold text-[#6B1D2F] mb-2 font-serif">
+          Product Not Found
+        </h2>
+        <p className="text-stone-600 text-xs mb-6">
+          The requested product ID could not be found in the database.
+        </p>
+        <Link
+          href="/shop"
+          className="bg-[#6B1D2F] text-white text-xs font-bold px-6 py-2.5 rounded-lg uppercase tracking-wider hover:bg-[#521624] transition"
+        >
+          Back to Shop
+        </Link>
+      </div>
+    );
+  }
 
-      const data = await res.json();
-
-      if (res.ok && data.url) {
-        setImageUrl(data.url);
-      } else {
-        alert(data.error || 'Image upload fail ho gaya.');
-      }
-    } catch (err) {
-      alert('Image upload karte waqt error aaya.');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !price || !imageUrl) {
-      alert('Kripya Name, Price aur Product Image select karein.');
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          price: parseFloat(price),
-          category,
-          image: imageUrl,
-          stock: parseInt(stock) || 10,
-          description,
-        }),
-      });
-
-      let data;
-      try {
-        data = await res.json();
-      } catch {
-        alert('Server ne JSON response nahi diya. Status: ' + res.status);
-        return;
-      }
-
-      if (res.ok && data.success) {
-        alert('Product successfully publish ho gaya!');
-        router.push('/admin/products');
-      } else {
-        alert(data.error || 'Database mein save nahi ho paaya.');
-      }
-    } catch (err: any) {
-      alert('Real Error: ' + err.message);
-    }
-  };
+  const imageSrc = product.image || product.imageUrl || '/images/placeholder.jpg';
 
   return (
-    <div className="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-md space-y-6">
-      <h1 className="text-2xl font-serif font-bold text-gray-900 border-b pb-4">
-        Add New Lucknowi Collection
-      </h1>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Product Name *</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Handcrafted White Chikankari Kurti"
-            className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-amber-800 outline-none"
-            required
-          />
+    <div className="min-h-screen bg-[#FAF7F2] py-8 md:py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto bg-white rounded-2xl border border-stone-200/80 p-6 md:p-10 shadow-sm">
+        <div className="mb-6">
+          <Link
+            href="/shop"
+            className="text-xs uppercase tracking-widest text-[#6B1D2F] font-bold hover:underline inline-flex items-center gap-1.5"
+          >
+            ← Back to Collection
+          </Link>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Price (₹) *</label>
-            <input
-              type="number"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="2499"
-              className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-amber-800 outline-none"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Category *</label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:ring-1 focus:ring-amber-800 outline-none"
-            >
-              <option value="Kurtis">Kurtis</option>
-              <option value="Sarees">Sarees</option>
-              <option value="Suits">Suits</option>
-              <option value="Men">Men's Collection</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Upload Product Image *</label>
-          <div className="border-2 border-dashed border-stone-300 p-4 rounded-xl text-center hover:bg-stone-50 transition-colors">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleFileUpload}
-              className="hidden"
-              id="product-file-upload"
-            />
-            <label htmlFor="product-file-upload" className="cursor-pointer space-y-2 block">
-              <UploadCloud className="w-8 h-8 mx-auto text-amber-800" />
-              <span className="text-xs text-gray-600 block font-medium">
-                {uploading ? 'Uploading Image...' : 'Click to choose image file'}
-              </span>
-            </label>
-          </div>
-
-          {imageUrl && !uploading && (
-            <div className="mt-2 space-y-2">
-              <div className="flex items-center gap-2 text-xs text-green-700 font-semibold">
-                <CheckCircle2 className="w-4 h-4" /> Image Uploaded & Ready!
-              </div>
-              <img
-                src={imageUrl}
-                alt="Preview"
-                className="w-32 h-32 object-cover rounded-lg border border-stone-200"
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-start">
+          {/* Dynamic Product Image */}
+          <div className="md:col-span-6">
+            <div className="relative w-full h-[420px] md:h-[520px] bg-stone-100 rounded-xl overflow-hidden border border-stone-200/60 shadow-inner">
+              <Image
+                src={imageSrc}
+                alt={product.name}
+                fill
+                sizes="(max-width: 768px) 100vw, 50vw"
+                className="object-cover hover:scale-105 transition duration-500"
+                priority
               />
             </div>
-          )}
-        </div>
+          </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Stock Quantity</label>
-          <input
-            type="number"
-            value={stock}
-            onChange={(e) => setStock(e.target.value)}
-            className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-amber-800 outline-none"
-          />
-        </div>
+          {/* Dynamic Product Details */}
+          <div className="md:col-span-6 space-y-5">
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-widest bg-[#6B1D2F] text-white px-2.5 py-1 rounded inline-block mb-3">
+                {product.category || 'Chikankari'}
+              </span>
 
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 uppercase mb-1">Description</label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Fabric details, embroidery style..."
-            rows={3}
-            className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 focus:ring-amber-800 outline-none"
-          />
-        </div>
+              <h1 className="text-2xl md:text-3xl font-serif font-bold text-stone-900 leading-snug">
+                {product.name}
+              </h1>
 
-        <button
-          type="submit"
-          disabled={uploading}
-          className="w-full py-3 bg-[#6B1D2F] hover:bg-[#521624] text-[#F3E5AB] font-bold text-sm uppercase rounded-lg shadow transition-colors disabled:opacity-50"
-        >
-          {uploading ? 'Uploading...' : 'Publish Product'}
-        </button>
-      </form>
+              <div className="flex items-baseline gap-3 mt-3">
+                <span className="text-2xl md:text-3xl font-bold text-[#6B1D2F]">
+                  ₹{product.price}
+                </span>
+                <span className="text-xs text-stone-500">
+                  Inclusive of all taxes
+                </span>
+              </div>
+            </div>
+
+            <p className="text-stone-600 text-xs md:text-sm leading-relaxed border-t border-b border-stone-100 py-4">
+              {product.description ||
+                'Authentic hand-embroidered Lucknowi Chikankari product crafted with premium fabric for absolute elegance.'}
+            </p>
+
+            <div className="space-y-2 text-xs text-stone-700 font-medium">
+              <p>
+                <span className="text-stone-400 font-normal">Fabric:</span> Pure Cotton / Georgette
+              </p>
+              <p>
+                <span className="text-stone-400 font-normal">Craft:</span> Hand Embroidered Chikankari
+              </p>
+              <p>
+                <span className="text-stone-400 font-normal">Fit Type:</span> Regular / Comfort Fit
+              </p>
+            </div>
+
+            <ProductActions
+              product={{
+                id: product.id,
+                name: product.name,
+                price: product.price,
+                image: imageSrc,
+              }}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

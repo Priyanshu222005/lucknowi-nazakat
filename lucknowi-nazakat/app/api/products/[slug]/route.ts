@@ -1,189 +1,38 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { Prisma } from '@prisma/client';
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export const dynamic = 'force-dynamic';
-
-interface RouteContext {
-  params: Promise<{ slug: string }>;
-}
-
-type ProductRecord = Record<string, any>;
-
-// Shapes a database row into what the storefront and admin pages expect
-function serializeProduct(product: ProductRecord) {
-  const mainImage: string = product.image ?? product.imageUrl ?? '';
-  const images: string[] =
-    Array.isArray(product.images) && product.images.length > 0
-      ? product.images
-      : mainImage
-      ? [mainImage]
-      : [];
-
-  return {
-    id: product.id,
-    name: product.name,
-    description: product.description ?? '',
-    price: Number(product.price),
-    category: product.category ?? '',
-    stock: Number(product.stock ?? product.stockQuantity ?? 0),
-    image: images[0] ?? '/images/placeholder.jpg',
-    images,
-  };
-}
-
-// GET /api/products/[slug]  ->  single product
-export async function GET(_request: NextRequest, { params }: RouteContext) {
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ slug: string }> }
+) {
   try {
-    const { slug } = await params;
+    const { slug } = await params; // Yahan 'slug' parameter ka matlab product ID hai
 
     if (!slug) {
-      return NextResponse.json(
-        { success: false, error: 'Product id is missing' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
     }
 
-    const product = await prisma.product.findUnique({ where: { id: slug } });
+    // Direct search by ID only (Since Prisma schema doesn't have slug column)
+    const product = await prisma.product.findUnique({
+      where: { id: slug },
+    });
 
     if (!product) {
-      return NextResponse.json(
-        { success: false, error: 'Product not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
     return NextResponse.json({
-      success: true,
-      product: serializeProduct(product as ProductRecord),
+      id: product.id,
+      name: product.name,
+      price: Number(product.price),
+      category: product.category || 'Chikankari',
+      description: product.description || 'Authentic hand-embroidered Lucknowi Chikankari.',
+      image: product.imageUrl || product.image || '/images/placeholder.jpg',
     });
   } catch (error) {
-    console.error('GET /api/products/[slug] error:', error);
+    console.error('API Fetch Error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to load product' },
-      { status: 500 }
-    );
-  }
-}
-
-// Shared by PUT and PATCH: updates only the fields that are sent
-async function updateProduct(request: NextRequest, { params }: RouteContext) {
-  try {
-    const { slug } = await params;
-
-    let body: ProductRecord = {};
-    try {
-      body = (await request.json()) as ProductRecord;
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'Request body must be valid JSON' },
-        { status: 400 }
-      );
-    }
-
-    const data: ProductRecord = {};
-
-    if (body.name !== undefined) data.name = String(body.name).trim();
-    if (body.description !== undefined) data.description = String(body.description);
-    if (body.category !== undefined) data.category = String(body.category);
-    if (body.price !== undefined) data.price = Number(body.price);
-    if (body.image !== undefined) data.image = String(body.image);
-    if (Array.isArray(body.images)) data.images = body.images.map(String);
-
-    // Stock can arrive as a number, or as an "in stock / out of stock" flag
-    if (body.stock !== undefined) {
-      data.stock = Math.max(0, Math.floor(Number(body.stock)));
-    } else if (body.inStock === false || body.outOfStock === true) {
-      data.stock = 0;
-    }
-
-    if (data.price !== undefined && Number.isNaN(data.price)) {
-      return NextResponse.json(
-        { success: false, error: 'Price must be a number' },
-        { status: 400 }
-      );
-    }
-
-    if (data.stock !== undefined && Number.isNaN(data.stock)) {
-      return NextResponse.json(
-        { success: false, error: 'Stock must be a number' },
-        { status: 400 }
-      );
-    }
-
-    if (Object.keys(data).length === 0) {
-      return NextResponse.json(
-        { success: false, error: 'No fields to update' },
-        { status: 400 }
-      );
-    }
-
-    const updated = await prisma.product.update({
-      where: { id: slug },
-      data,
-    });
-
-    return NextResponse.json({
-      success: true,
-      product: serializeProduct(updated as ProductRecord),
-    });
-  } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2025'
-    ) {
-      return NextResponse.json(
-        { success: false, error: 'Product not found' },
-        { status: 404 }
-      );
-    }
-    console.error('Update /api/products/[slug] error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to update product' },
-      { status: 500 }
-    );
-  }
-}
-
-// PUT /api/products/[slug]  ->  edit product
-export async function PUT(request: NextRequest, context: RouteContext) {
-  return updateProduct(request, context);
-}
-
-// PATCH /api/products/[slug]  ->  partial edit (e.g. stock update)
-export async function PATCH(request: NextRequest, context: RouteContext) {
-  return updateProduct(request, context);
-}
-
-// DELETE /api/products/[slug]  ->  remove product
-export async function DELETE(_request: NextRequest, { params }: RouteContext) {
-  try {
-    const { slug } = await params;
-
-    await prisma.product.delete({ where: { id: slug } });
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2025') {
-        return NextResponse.json(
-          { success: false, error: 'Product not found' },
-          { status: 404 }
-        );
-      }
-      if (error.code === 'P2003') {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Is product ke orders bane hue hain, isliye delete nahi ho sakta.',
-          },
-          { status: 409 }
-        );
-      }
-    }
-    console.error('DELETE /api/products/[slug] error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to delete product' },
+      { error: 'Failed to fetch product from database' },
       { status: 500 }
     );
   }
