@@ -8,6 +8,12 @@ export default function Navbar() {
   const cartContext = useCart();
   const cart = cartContext?.cart || [];
 
+  // Total items quantity count calculate karna
+  const totalItemsCount = cart.reduce(
+    (sum, item) => sum + (Number(item.quantity) || 1),
+    0
+  );
+
   return (
     <header className="bg-[#6B1D2F] text-white sticky top-0 z-50 shadow-md">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -30,10 +36,15 @@ export default function Navbar() {
 
         <div className="flex items-center space-x-3">
           <Link
-            href="/cart"
-            className="bg-white text-[#6B1D2F] px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold uppercase flex items-center gap-1 shadow"
+            href="/checkout"
+            className="bg-white text-[#6B1D2F] px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold uppercase flex items-center gap-1.5 shadow hover:bg-stone-100 transition"
           >
-            Cart <span className="bg-[#6B1D2F] text-white rounded-full px-1.5 py-0.2 text-[10px]">{cart.length}</span>
+            <span>CART</span>
+            {totalItemsCount > 0 && (
+              <span className="bg-[#6B1D2F] text-white rounded-full min-w-[20px] h-[20px] px-1 flex items-center justify-center text-[11px] font-bold leading-none">
+                {totalItemsCount}
+              </span>
+            )}
           </Link>
         </div>
       </div>

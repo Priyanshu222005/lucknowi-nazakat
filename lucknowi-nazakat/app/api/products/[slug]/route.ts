@@ -1,159 +1,151 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
-const prisma = globalForPrisma.prisma || new PrismaClient();
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+export const dynamic = 'force-dynamic';
 
 interface RouteContext {
   params: Promise<{ slug: string }>;
 }
 
-async function getParamSlug(context: RouteContext): Promise<string | null> {
-  const params = await context.params;
-  if (!params?.slug || params.slug === 'undefined') return null;
-  return decodeURIComponent(params.slug);
+type ProductRecord = Record<string, any>;
+
+// Shapes a database row into what the storefront and admin pages expect
+function serializeProduct(product: ProductRecord) {
+  const mainImage: string = product.image ?? product.imageUrl ?? '';
+  const images: string[] =
+    Array.isArray(product.images) && product.images.length > 0
+      ? product.images
+      : mainImage
+      ? [mainImage]
+      : [];
+
+  return {
+    id: product.id,
+    name: product.name,
+    description: product.description ?? '',
+    price: Number(product.price),
+    category: product.category ?? '',
+    stock: Number(product.stock ?? product.stockQuantity ?? 0),
+    image: images[0] ?? '/images/placeholder.jpg',
+    images,
+  };
 }
 
-/**
- * GET /api/products/[slug]
- * Returns a single product by ID (falls back to name match).
- */
-export async function GET(req: NextRequest, context: RouteContext) {
+// GET /api/products/[slug]  ->  single product
+export async function GET(_request: NextRequest, { params }: RouteContext) {
   try {
-    const identifier = await getParamSlug(context);
+    const { slug } = await params;
 
-    if (!identifier) {
+    if (!slug) {
       return NextResponse.json(
-        { success: false, error: 'A valid product identifier is required.' },
+        { success: false, error: 'Product id is missing' },
         { status: 400 }
       );
     }
 
-    const product = await prisma.product.findFirst({
-      where: { OR: [{ id: identifier }, { name: identifier }] },
-    });
+    const product = await prisma.product.findUnique({ where: { id: slug } });
 
     if (!product) {
       return NextResponse.json(
-        { success: false, error: 'Product not found.' },
+        { success: false, error: 'Product not found' },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ success: true, product });
+    return NextResponse.json({
+      success: true,
+      product: serializeProduct(product as ProductRecord),
+    });
   } catch (error) {
-    console.error('[GET /api/products/[slug]] Error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to fetch product.';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    console.error('GET /api/products/[slug] error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to load product' },
+      { status: 500 }
+    );
   }
 }
 
-/**
- * DELETE /api/products/[slug]
- */
-export async function DELETE(req: NextRequest, context: RouteContext) {
+// PUT /api/products/[slug]  ->  edit product
+export async function PUT(request: NextRequest, { params }: RouteContext) {
   try {
-    const identifier = await getParamSlug(context);
+    const { slug } = await params;
+    const body = (await request.json()) as ProductRecord;
 
-    if (!identifier) {
+    const data: ProductRecord = {};
+
+    if (body.name !== undefined) data.name = String(body.name).trim();
+    if (body.description !== undefined) data.description = String(body.description);
+    if (body.category !== undefined) data.category = String(body.category);
+    if (body.price !== undefined) data.price = Number(body.price);
+    if (body.stock !== undefined) data.stock = Math.max(0, Math.floor(Number(body.stock)));
+    if (body.image !== undefined) data.image = String(body.image);
+    if (Array.isArray(body.images)) data.images = body.images.map(String);
+
+    if (data.price !== undefined && Number.isNaN(data.price)) {
       return NextResponse.json(
-        { success: false, error: 'A valid product identifier is required.' },
+        { success: false, error: 'Price must be a number' },
         { status: 400 }
       );
     }
 
-    try {
-      await prisma.product.delete({ where: { id: identifier } });
-      return NextResponse.json({ success: true, message: 'Product deleted successfully.' });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2025'
-      ) {
-        console.log('[DELETE /api/products] No match by ID, falling back to name match...');
-      } else {
-        throw error;
-      }
-    }
-
-    const fallbackResult = await prisma.product.deleteMany({
-      where: { name: identifier },
+    const updated = await prisma.product.update({
+      where: { id: slug },
+      data,
     });
 
-    if (fallbackResult.count === 0) {
+    return NextResponse.json({
+      success: true,
+      product: serializeProduct(updated as ProductRecord),
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2025'
+    ) {
       return NextResponse.json(
-        { success: false, error: `No product found matching "${identifier}".` },
+        { success: false, error: 'Product not found' },
         { status: 404 }
       );
     }
-
-    return NextResponse.json({ success: true, message: 'Product deleted successfully.' });
-  } catch (error) {
-    console.error('[DELETE /api/products] Unexpected error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to delete product.';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    console.error('PUT /api/products/[slug] error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to update product' },
+      { status: 500 }
+    );
   }
 }
 
-/**
- * PATCH /api/products/[slug]
- * Updates stock quantity.
- */
-export async function PATCH(req: NextRequest, context: RouteContext) {
+// DELETE /api/products/[slug]  ->  remove product
+export async function DELETE(_request: NextRequest, { params }: RouteContext) {
   try {
-    const identifier = await getParamSlug(context);
+    const { slug } = await params;
 
-    if (!identifier) {
-      return NextResponse.json(
-        { success: false, error: 'A valid product identifier is required.' },
-        { status: 400 }
-      );
-    }
+    await prisma.product.delete({ where: { id: slug } });
 
-    const body = await req.json();
-    const newStock = Number.parseInt(body?.stock, 10);
-
-    if (Number.isNaN(newStock) || newStock < 0) {
-      return NextResponse.json(
-        { success: false, error: 'A valid, non-negative stock value is required.' },
-        { status: 400 }
-      );
-    }
-
-    try {
-      await prisma.product.update({
-        where: { id: identifier },
-        data: { stock: newStock },
-      });
-      return NextResponse.json({ success: true, message: 'Stock updated successfully.' });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2025'
-      ) {
-        console.log('[PATCH /api/products] No match by ID, falling back to name match...');
-      } else {
-        throw error;
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2025') {
+        return NextResponse.json(
+          { success: false, error: 'Product not found' },
+          { status: 404 }
+        );
+      }
+      if (error.code === 'P2003') {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Is product ke orders bane hue hain, isliye delete nahi ho sakta.',
+          },
+          { status: 409 }
+        );
       }
     }
-
-    const fallbackResult = await prisma.product.updateMany({
-      where: { name: identifier },
-      data: { stock: newStock },
-    });
-
-    if (fallbackResult.count === 0) {
-      return NextResponse.json(
-        { success: false, error: `No product found matching "${identifier}".` },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({ success: true, message: 'Stock updated successfully.' });
-  } catch (error) {
-    console.error('[PATCH /api/products] Unexpected error:', error);
-    const message = error instanceof Error ? error.message : 'Failed to update stock.';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    console.error('DELETE /api/products/[slug] error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete product' },
+      { status: 500 }
+    );
   }
 }

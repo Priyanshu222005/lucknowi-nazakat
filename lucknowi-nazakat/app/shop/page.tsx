@@ -130,7 +130,8 @@ export default function ShopPage() {
             {filteredProducts.map((p) => {
               const images = p.image ? [p.image] : [];
               const imgSrc = images[0] || '/images/placeholder.jpg';
-              const productLink = `/product/${p.slug || p.id}`;
+              // Fixed: Direct pass id to route properly to app/product/[id]/page.tsx
+              const productLink = `/product/${p.id}`;
 
               return (
                 <div key={p.id} className="bg-white rounded-lg border border-stone-200 p-4 shadow-sm flex flex-col justify-between">
